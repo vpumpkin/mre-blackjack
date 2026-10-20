@@ -1536,8 +1536,7 @@ function tick() {
   const dt = fixedDt || Math.min(clock.getDelta(), 1 / 20);
   state.t += dt;
   const t = state.t;
-  updateDragon(dt);
-  updateCamera(dt);
+  if (!window.__freeze) { updateDragon(dt); updateCamera(dt); }
   sky.position.copy(camera.position);
   sky.material.uniforms.uTime.value = t;
   cloudSea.material.uniforms.uTime.value = t;
@@ -1562,7 +1561,7 @@ function tick() {
   frame++;
 }
 renderer.setAnimationLoop(tick);
-window.__dbg = { THREE, scene, camera, state, director, rig, sky, cloudSea, clouds, cut, SHOTS, setFree, doFire, doRoll, doRoar, updateDragon, updateCamera };
+window.__dbg = { THREE, scene, camera, controls, dragon, body, state, director, rig, sky, cloudSea, clouds, cut, SHOTS, setFree, doFire, doRoll, doRoar, updateDragon, updateCamera };
 
 // ---------------------------------------------------------------------------
 // Boot
