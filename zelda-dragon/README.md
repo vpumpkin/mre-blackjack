@@ -4,6 +4,8 @@ Fan-Art-Szene: Link reitet auf einem Drachen über die Himmelsinseln. Das 3D-Mod
 erzeugt [Meshy](https://www.meshy.ai) per Text-to-3D, die Szene drumherum ist
 three.js (r160) in einer einzigen `index.html`.
 
+![Vorschau der Umgebung, noch ohne Drachen](vorschau-umgebung.png)
+
 ## Modell erzeugen
 
 ```bash
