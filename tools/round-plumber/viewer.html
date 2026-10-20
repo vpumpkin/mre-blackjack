@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Runder Klempner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+	/* Layout: 3D stage + animation index. Desktop: stage left, index right; phone: stage on top, index scrolls below.
+	   One deliberate dark look: a haunted-mansion stage lit by moonlight, with the hero's green as accent. */
+	:root {
+		--bg: #120f1a;
+		--stage: #1a1526;
+		--panel: #1d1829;
+		--panel-2: #262036;
+		--line: rgba(226, 216, 255, 0.12);
+		--fg: #eee9f7;
+		--muted: #a59cba;
+		--green: #4fd16a;
+		--green-soft: rgba(79, 209, 106, 0.15);
+		--ghost: #9ff3ff;
+		--warn: #ffcf4a;
+		--font-ui: "Fredoka", "Nunito", "Segoe UI", system-ui, sans-serif;
+		--font-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+		color-scheme: dark;
+	}
+	[hidden] { display: none !important; }
+	* { box-sizing: border-box; }
+	html, body { height: 100%; margin: 0; }
+	body {
+		background: var(--bg);
+		color: var(--fg);
+		font-family: var(--font-ui);
+		font-size: 15px;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 340px;
+		overflow: hidden;
+	}
+	.stage { position: relative; min-width: 0; min-height: 0; background: var(--stage); }
+	.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+	.hud {
+		position: absolute;
+		inset: auto 0 0 0;
+		padding-block: 10px max(12px, env(safe-area-inset-bottom, 0px));
+		padding-left: max(16px, env(safe-area-inset-left, 0px));
+		padding-right: 16px;
+		display: grid;
+		gap: 8px;
+		background: linear-gradient(to top, rgba(18, 15, 26, 0.92), rgba(18, 15, 26, 0));
+		pointer-events: none;
+	}
+	.hud > * { pointer-events: auto; }
+	.now { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+	.now h2 { margin: 0; font-size: 20px; font-weight: 600; text-wrap: balance; }
+	.now .meta { font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+	.timeline { position: relative; height: 26px; margin-top: 12px; }
+	.timeline input { position: absolute; inset: 6px 0 auto 0; width: 100%; margin: 0; accent-color: var(--green); }
+	.ticks { position: absolute; inset: 0; pointer-events: none; }
+	.tick { position: absolute; top: 0; width: 2px; height: 10px; background: var(--warn); border-radius: 1px; transform: translateX(-1px); }
+	.tick span { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-family: var(--font-data); font-size: 9px; color: var(--warn); white-space: nowrap; opacity: 0.9; }
+	.tick span.low { top: 13px; }
+	.tick:first-child span { transform: none; left: 0; }
+	.tick:last-child span { transform: translateX(-100%); left: 0; }
+	.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.btn {
+		appearance: none;
+		font: inherit;
+		font-size: 13px;
+		font-weight: 500;
+		color: var(--fg);
+		background: var(--panel-2);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		padding: 6px 12px;
+		cursor: pointer;
+	}
+	.btn:hover { border-color: rgba(226, 216, 255, 0.3); }
+	.btn:focus-visible, .clip:focus-visible, .chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+	.btn[aria-pressed="true"] { color: var(--green); border-color: rgba(79, 209, 106, 0.55); background: var(--green-soft); }
+	label.speed { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+	label.speed input { accent-color: var(--green); width: 84px; }
+	.time { font-family: var(--font-data); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+	.toast {
+		position: absolute;
+		top: max(14px, env(safe-area-inset-top, 0px));
+		left: 50%;
+		transform: translateX(-50%);
+		font-family: var(--font-data);
+		font-size: 12px;
+		letter-spacing: 0.06em;
+		color: #1a1526;
+		background: var(--warn);
+		border-radius: 999px;
+		padding: 4px 12px;
+		opacity: 0;
+		transition: opacity 200ms ease;
+		pointer-events: none;
+	}
+	.toast.on { opacity: 1; transition: none; }
+
+	aside {
+		background: var(--panel);
+		border-left: 1px solid var(--line);
+		overflow-y: auto;
+		padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+		padding-left: 16px;
+		padding-right: max(16px, env(safe-area-inset-right, 0px));
+		display: grid;
+		align-content: start;
+		gap: 18px;
+		min-height: 0;
+	}
+	header h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.05; }
+	header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+	.group h3 {
+		margin: 0 0 8px;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--muted);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+	}
+	.list { display: grid; gap: 4px; }
+	.clip {
+		appearance: none;
+		font: inherit;
+		color: var(--fg);
+		text-align: left;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 10px;
+		padding: 7px 10px;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		align-items: baseline;
+	}
+	.clip:hover { background: var(--panel-2); }
+	.clip[aria-current="true"] { background: var(--green-soft); border-color: rgba(79, 209, 106, 0.5); }
+	.clip .name { font-size: 14px; min-width: 0; }
+	.clip .dur { font-family: var(--font-data); font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+	.chip {
+		appearance: none;
+		font: inherit;
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		text-transform: none;
+		color: var(--green);
+		background: transparent;
+		border: 1px solid rgba(79, 209, 106, 0.45);
+		border-radius: 999px;
+		padding: 2px 8px;
+		cursor: pointer;
+	}
+	.faces { display: flex; flex-wrap: wrap; gap: 6px; }
+	.faces .btn { padding: 5px 10px; }
+	.markers { font-family: var(--font-data); font-size: 11px; color: var(--muted); line-height: 1.7; }
+	.markers b { color: var(--warn); font-weight: 500; }
+	.notice { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-family: var(--font-data); font-size: 12px; text-align: center; padding: 16px; }
+
+	@media (max-width: 760px) {
+		body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 62% minmax(0, 1fr); }
+		aside { border-left: 0; border-top: 1px solid var(--line); padding-top: 14px; }
+		header h1 { font-size: 22px; }
+		.now h2 { font-size: 17px; }
+		label.speed input { width: 64px; }
+	}
+	@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<main class="stage" id="stage" aria-label="3D-Ansicht des Charakters. Ziehen zum Drehen, Scrollen oder zwei Finger zum Zoomen.">
+	<div class="notice" id="notice">Modell wird geladen …</div>
+	<div class="toast" id="toast" role="status"></div>
+	<div class="hud">
+		<div class="now"><h2 id="clipTitle">–</h2><span class="meta" id="clipMeta"></span></div>
+		<div class="timeline">
+			<input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Zeitleiste">
+			<div class="ticks" id="ticks"></div>
+		</div>
+		<div class="transport">
+			<button class="btn" id="play" type="button">Pause</button>
+			<span class="time" id="time">0,00 / 0,00 s</span>
+			<label class="speed" for="speed">Tempo <input id="speed" type="range" min="0.1" max="1.5" step="0.05" value="1"><output id="speedOut" class="time">1,00×</output></label>
+			<button class="btn" id="fx" type="button" aria-pressed="true">Effekte</button>
+			<button class="btn" id="hitstop" type="button" aria-pressed="true">Hit-Stop</button>
+			<button class="btn" id="cam" type="button">Kamera: Totale</button>
+		</div>
+	</div>
+</main>
+<aside>
+	<header>
+		<h1>Runder Klempner</h1>
+		<p>Alle Animationen des Charakters. Antippen spielt sie ab, „Variante“ wählt zufällig eine andere Variante derselben Gruppe (nie zweimal dieselbe hintereinander). Gelbe Striche auf der Zeitleiste sind die Gameplay-Marker.</p>
+	</header>
+	<div id="groups"></div>
+	<section class="group">
+		<h3>Mimik-Overlay <span class="time">nur Gesicht</span></h3>
+		<div class="faces" id="faces"></div>
+	</section>
+	<section class="group">
+		<h3>Marker im Clip</h3>
+		<div class="markers" id="markerList">–</div>
+	</section>
+</aside>
+
+<!--GLB-->
+
+<script type="importmap">
+{
+	"imports": {
+		"three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+		"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+	}
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const params = new URLSearchParams(location.search);
+const capture = params.has('capture');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 2) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const GROUPS = [
+	['Idle', ['Idle_Fear', 'Idle_LookAround', 'Idle_Courage', 'Combat_Idle', 'Run']],
+	['Staubsauger', ['Vacuum_Start', 'Vacuum_Suck', 'Vacuum_Stop']],
+	['Angriffe', ['Attack_Uppercut', 'Flash']],
+	['Ultimate', ['SlamCombo']],
+	['Ausweichen', ['Dodge_Left', 'Dodge_Right', 'Dodge_Back']],
+];
+const FACE_DE = { Neutral: 'neutral', Afraid: 'ängstlich', Startled: 'erschrocken', Panic: 'panisch', Focused: 'konzentriert', Angry: 'wütend', Relieved: 'erleichtert', Proud: 'stolz', Confused: 'verwirrt' };
+const FACE_BONES = new Set(['Eye_L', 'Eye_R', 'Pupil_L', 'Pupil_R', 'LidUpper_L', 'LidUpper_R', 'LidLower_L', 'LidLower_R', 'BrowIn_L', 'BrowIn_R', 'BrowOut_L', 'BrowOut_R', 'Cheek_L', 'Cheek_R', 'Nose', 'Mustache_L', 'Mustache_R', 'MouthUpper', 'MouthLower', 'MouthCorner_L', 'MouthCorner_R']);
+const HIT_STOP = { Impact: 0.07, Slam01: 0.09, Slam02: 0.13, Flash: 0.04 };
+
+// --- renderer -----------------------------------------------------------------
+const stage = $('stage');
+let renderer;
+try {
+	renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: capture });
+} catch (err) {
+	$('notice').textContent = 'WebGL ist in diesem Browser nicht verfügbar.';
+	throw err;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1526);
+scene.fog = new THREE.Fog(0x1a1526, 9, 26);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 80);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.minDistance = 1.2;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+scene.add(new THREE.HemisphereLight(0xb9c4ff, 0x2a1f2e, 0.9));
+const moon = new THREE.DirectionalLight(0xdfe6ff, 2.4);
+moon.position.set(3, 6, 4);
+moon.castShadow = true;
+moon.shadow.mapSize.set(2048, 2048);
+Object.assign(moon.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 20 });
+moon.shadow.bias = -0.0004;
+scene.add(moon);
+const rim = new THREE.DirectionalLight(0x8ef0b0, 1.1);
+rim.position.set(-4, 3, -4);
+scene.add(rim);
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.85 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+function resize() {
+	const w = stage.clientWidth, h = stage.clientHeight;
+	renderer.setSize(w, h, false);
+	camera.aspect = w / Math.max(1, h);
+	camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+// --- effects ------------------------------------------------------------------
+const fx = { on: true, hitStop: true };
+const spot = new THREE.SpotLight(0xfff2c8, 0, 14, 0.42, 0.45, 1.2);
+spot.castShadow = false;
+scene.add(spot, spot.target);
+const flashCone = new THREE.Mesh(
+	new THREE.ConeGeometry(1.6, 6, 32, 1, true).translate(0, -3, 0).rotateX(-Math.PI / 2),
+	new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+);
+scene.add(flashCone);
+const nozzleLight = new THREE.PointLight(0x5ff7ff, 0, 3.5, 1.5);
+scene.add(nozzleLight);
+
+const DUST_N = 240;
+const dust = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xcfd8ff, size: 0.035, transparent: true, opacity: 0.85, depthWrite: false, map: dotTexture() }));
+dust.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(DUST_N * 3), 3));
+dust.userData.seed = Array.from({ length: DUST_N }, () => [Math.random(), Math.random() * Math.PI * 2, Math.random()]);
+dust.frustumCulled = false;
+scene.add(dust);
+
+const rings = [];
+function impact(pos, strength) {
+	if (!fx.on) return;
+	const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06 * strength, 8, 40), new THREE.MeshBasicMaterial({ color: 0xd9cfbf, transparent: true, opacity: 0.8, depthWrite: false }));
+	ring.rotation.x = Math.PI / 2;
+	ring.position.set(pos.x, 0.04, pos.z);
+	ring.userData = { t: 0, strength };
+	scene.add(ring);
+	rings.push(ring);
+	shake = Math.max(shake, 0.06 * strength);
+}
+
+const ghost = makeGhost();
+scene.add(ghost);
+let shake = 0, flashT = 1;
+
+// --- model ----------------------------------------------------------------------
+async function loadBytes() {
+	const embedded = document.getElementById('glb-data');
+	if (embedded) {
+		const bin = atob(embedded.textContent.trim());
+		const bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+		return bytes.buffer;
+	}
+	const res = await fetch(params.get('src') || '../../public/round-plumber.glb');
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	return res.arrayBuffer();
+}
+
+let model, mixer, info = {}, clips = {}, actions = {}, noFace = {};
+let current = null, faceAction = null, paused = false, speed = 1, freezeUntil = 0, lastTime = 0;
+const lastVariant = {};
+const B = {};
+const views = [
+	{ name: 'Totale', dir: [0.55, 0.28, 0.79], dist: 5.4 },
+	{ name: 'Gesicht', dir: [0.15, 0.06, 1], dist: 1.55, face: true },
+	{ name: 'Seite', dir: [1, 0.2, 0.08], dist: 5.2 },
+	{ name: 'Hinten', dir: [-0.5, 0.35, -0.8], dist: 5 },
+];
+let view = 0, tween = null;
+
+try {
+	const gltf = await new GLTFLoader().parseAsync(await loadBytes(), '');
+	model = gltf.scene;
+	model.traverse((o) => {
+		if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
+		if (o.isBone) B[o.name] = o;
+	});
+	scene.add(model);
+	for (const c of model.userData.clips || []) info[c.name] = c;
+	mixer = new THREE.AnimationMixer(model);
+	for (const clip of gltf.animations) {
+		clips[clip.name] = clip;
+		actions[clip.name] = mixer.clipAction(clip);
+		if (!info[clip.name]?.faceOnly) {
+			const tracks = clip.tracks.filter((t) => !FACE_BONES.has(t.name.split('.')[0]));
+			noFace[clip.name] = mixer.clipAction(new THREE.AnimationClip(`${clip.name}__body`, clip.duration, tracks));
+		}
+	}
+	buildIndex();
+	$('notice').hidden = true;
+	select(params.get('clip') || 'Idle_Fear', true);
+	setView(Number(params.get('view') || 0), true);
+	if (params.get('face')) setFace(params.get('face'));
+	if (params.has('t')) { paused = true; seek(Number(params.get('t'))); }
+} catch (err) {
+	$('notice').textContent = `Das Modell konnte nicht geladen werden (${err.message}).`;
+	console.error(err);
+}
+
+// --- index ------------------------------------------------------------------------
+function buildIndex() {
+	const groupsEl = $('groups');
+	for (const [title, groups] of GROUPS) {
+		const sec = document.createElement('section');
+		sec.className = 'group';
+		sec.innerHTML = `<h3>${title}</h3><div class="list"></div>`;
+		const list = sec.querySelector('.list');
+		for (const g of groups) {
+			const names = Object.values(info).filter((c) => c.group === g).map((c) => c.name);
+			if (names.length > 1) {
+				const row = document.createElement('div');
+				row.style.cssText = 'display:flex;justify-content:flex-end;margin:2px 0 -2px';
+				const chip = document.createElement('button');
+				chip.type = 'button';
+				chip.className = 'chip';
+				chip.textContent = `Variante (${names.length})`;
+				chip.setAttribute('aria-label', `Zufällige Variante: ${info[names[0]].label.replace(/ [A-C]( \(.*\))?$/, '')}`);
+				chip.addEventListener('click', () => select(pickVariant(g, names)));
+				row.append(chip);
+				list.append(row);
+			}
+			for (const n of names) {
+				const c = info[n];
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'clip';
+				b.dataset.clip = n;
+				b.innerHTML = `<span class="name">${c.label}</span><span class="dur">${fmt(c.duration, 1)} s${c.loop ? ' ↻' : ''}</span>`;
+				b.addEventListener('click', () => select(n));
+				list.append(b);
+			}
+		}
+		groupsEl.append(sec);
+	}
+	const faces = $('faces');
+	const off = document.createElement('button');
+	off.type = 'button';
+	off.className = 'btn';
+	off.textContent = 'aus';
+	off.dataset.face = '';
+	off.setAttribute('aria-pressed', 'true');
+	off.addEventListener('click', () => setFace(''));
+	faces.append(off);
+	for (const [k, de] of Object.entries(FACE_DE)) {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'btn';
+		b.textContent = de;
+		b.dataset.face = k;
+		b.setAttribute('aria-pressed', 'false');
+		b.addEventListener('click', () => setFace(k));
+		faces.append(b);
+	}
+}
+
+// variation system: never the same variant twice in a row
+function pickVariant(group, names) {
+	const options = names.filter((n) => n !== lastVariant[group]);
+	const n = options[Math.floor(Math.random() * options.length)];
+	lastVariant[group] = n;
+	return n;
+}
+
+function bodyAction(name) { return faceAction ? noFace[name] : actions[name]; }
+
+function select(name, instant = false) {
+	const c = info[name];
+	if (!c || c.faceOnly) return;
+	if (c.variant) lastVariant[c.group] = name;
+	const next = bodyAction(name);
+	const prev = current ? bodyAction(current) : null;
+	for (const a of [...Object.values(actions), ...Object.values(noFace)]) if (a !== prev && a !== next && a !== faceAction) a.stop();
+	next.reset();
+	next.setLoop(THREE.LoopRepeat, Infinity);
+	next.play();
+	if (prev && prev !== next && !instant) prev.crossFadeTo(next, 0.18, false);
+	else if (prev && prev !== next) prev.stop();
+	current = name;
+	lastTime = 0;
+	model.position.set(0, 0, 0);
+	ghost.visible = false;
+	document.querySelectorAll('.clip').forEach((b) => b.setAttribute('aria-current', String(b.dataset.clip === name)));
+	$('clipTitle').textContent = c.label;
+	$('clipMeta').textContent = `${c.name} · ${fmt(c.duration, 2)} s · ${Math.round(c.duration * 30)} Frames${c.loop ? ' · Loop' : ''}`;
+	// markers at (almost) the same time share one label; labels alternate rows
+	const merged = [];
+	for (const m of c.markers) {
+		const last = merged[merged.length - 1];
+		if (last && m.time - last.time < c.duration * 0.06) last.name += ` · ${m.name}`; else merged.push({ ...m });
+	}
+	$('ticks').innerHTML = merged.map((m, i) => `<i class="tick" style="left:${(m.time / c.duration) * 100}%"><span class="${i % 2 ? 'low' : ''}">${m.name}</span></i>`).join('');
+	$('markerList').innerHTML = c.markers.length
+		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${m.name}</div>`).join('')
+		: 'Keine Marker (Loop ohne Gameplay-Ereignisse)';
+}
+
+function setFace(key) {
+	const was = current ? bodyAction(current) : null;
+	const t = was ? was.time : 0;
+	if (faceAction) { faceAction.stop(); faceAction = null; }
+	if (key && actions[`Face_${key}`]) {
+		faceAction = actions[`Face_${key}`];
+		faceAction.reset().play();
+	}
+	if (current) {
+		const now = bodyAction(current);
+		if (was !== now) { was.stop(); now.reset().play(); now.time = t; }
+	}
+	document.querySelectorAll('[data-face]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.face === key)));
+}
+
+function seek(t) {
+	const a = bodyAction(current);
+	a.time = THREE.MathUtils.clamp(t, 0, info[current].duration - 1e-4);
+	lastTime = a.time;
+	mixer.update(0);
+}
+
+// --- UI -----------------------------------------------------------------------------
+$('play').addEventListener('click', () => { paused = !paused; $('play').textContent = paused ? 'Abspielen' : 'Pause'; });
+$('speed').addEventListener('input', (e) => { speed = Number(e.target.value); $('speedOut').textContent = `${fmt(speed)}×`; });
+$('fx').addEventListener('click', (e) => { fx.on = !fx.on; e.currentTarget.setAttribute('aria-pressed', String(fx.on)); });
+$('hitstop').addEventListener('click', (e) => { fx.hitStop = !fx.hitStop; e.currentTarget.setAttribute('aria-pressed', String(fx.hitStop)); });
+$('cam').addEventListener('click', () => setView(view + 1));
+let scrubbing = false;
+$('scrub').addEventListener('input', (e) => { scrubbing = true; seek((Number(e.target.value) / 1000) * info[current].duration); });
+$('scrub').addEventListener('change', () => { scrubbing = false; });
+addEventListener('keydown', (e) => {
+	if (e.target.closest('input')) return;
+	if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+	const order = [...document.querySelectorAll('.clip')].map((b) => b.dataset.clip);
+	const i = order.indexOf(current);
+	if (e.key === 'ArrowDown' || e.key === 'ArrowRight') select(order[(i + 1) % order.length]);
+	if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') select(order[(i - 1 + order.length) % order.length]);
+});
+
+let toastTimer;
+function toast(text) {
+	const el = $('toast');
+	el.textContent = text;
+	el.classList.add('on');
+	clearTimeout(toastTimer);
+	toastTimer = setTimeout(() => el.classList.remove('on'), 450);
+}
+
+function setView(i, instant = false) {
+	view = ((i % views.length) + views.length) % views.length;
+	const v = views[view];
+	const target = focus(new THREE.Vector3());
+	const pos = new THREE.Vector3(...v.dir).normalize().multiplyScalar(v.dist * (stage.clientWidth < 500 ? 1.25 : 1)).add(target);
+	if (instant) { controls.target.copy(target); camera.position.copy(pos); }
+	else tween = { from: camera.position.clone(), to: pos, t: 0 };
+	$('cam').textContent = `Kamera: ${v.name}`;
+}
+
+function focus(out) {
+	if (!B.Body) return out.set(0, 0.65, 0);
+	if (views[view]?.face) return B.Head.getWorldPosition(out).add(new THREE.Vector3(0, 0.05, 0.3));
+	B.Body.getWorldPosition(out);
+	out.y = Math.max(0.55, out.y * 0.6 + 0.3);
+	// the HUD covers the lower part of the stage: aim lower so the hero sits above it
+	out.y -= stage.clientHeight < 560 ? 0.38 : 0.18;
+	if (current && info[current].group === 'SlamCombo') out.y += 0.45; // keep the swung ghost in frame
+	return out;
+}
+
+// --- markers & effects ------------------------------------------------------------
+function onMarker(name) {
+	toast(name);
+	if (fx.hitStop && HIT_STOP[name]) freezeUntil = performance.now() + HIT_STOP[name] * 1000;
+	const p = new THREE.Vector3();
+	if (name === 'Flash') flashT = 0;
+	if (name === 'Impact') { B.Hand_R.getWorldPosition(p); shake = Math.max(shake, 0.035); }
+	if (name === 'Slam01' || name === 'Slam02') impact(B.GrabPoint.getWorldPosition(p), name === 'Slam02' ? 1.7 : 1.1);
+	if (name === 'Land') impact(B.Body.getWorldPosition(p), 0.55);
+}
+
+function updateEffects(c, t, dt) {
+	const p = new THREE.Vector3(), q = new THREE.Vector3();
+	// flashlight
+	B.FlashTip.getWorldPosition(p);
+	B.Flashlight.getWorldPosition(q);
+	const dir = p.clone().sub(q).normalize();
+	flashT = Math.min(1, flashT + dt / 0.22);
+	const burst = fx.on ? Math.max(0, 1 - flashT) : 0;
+	const lit = fx.on && c.group === 'Flash' && t > 0.42 && t < 1.0 ? 1 : 0;
+	spot.position.copy(p);
+	spot.target.position.copy(p).addScaledVector(dir, 4);
+	spot.intensity = lit * 6 + burst * 90;
+	flashCone.position.copy(p);
+	flashCone.lookAt(p.clone().add(dir));
+	flashCone.material.opacity = burst * 0.55 + lit * 0.035;
+	// vacuum suction: streaming dust + nozzle glow
+	const m = (n) => c.markers.find((k) => k.name === n)?.time;
+	let suck = 0;
+	if (c.group === 'Vacuum_Suck') suck = 1;
+	else if (c.group === 'Vacuum_Start') suck = t > m('SuctionActive') ? 1 : 0;
+	else if (c.group === 'SlamCombo') suck = t > m('SuctionActive') && t < m('Release') ? 1 : 0;
+	else if (c.group === 'Vacuum_Stop') suck = t < m('VacuumStop') ? 1 : 0;
+	suck *= fx.on ? 1 : 0;
+	B.NozzleTip.getWorldPosition(p);
+	B.Nozzle.getWorldPosition(q);
+	const ndir = p.clone().sub(q).normalize();
+	nozzleLight.position.copy(p);
+	nozzleLight.intensity = suck * (1.6 + 0.4 * Math.sin(performance.now() / 60));
+	dust.visible = suck > 0;
+	if (suck > 0) {
+		const pos = dust.geometry.attributes.position;
+		const side = new THREE.Vector3().crossVectors(ndir, new THREE.Vector3(0, 1, 0)).normalize();
+		const up = new THREE.Vector3().crossVectors(side, ndir);
+		const now = performance.now() / 1000;
+		dust.userData.seed.forEach(([s, a, r], i) => {
+			const life = (s + now * (0.9 + r * 0.5)) % 1; // 0 far -> 1 at the nozzle
+			const d = 3.2 * (1 - life) ** 1.6;
+			const rad = 0.08 + d * 0.32 * r;
+			const ang = a + life * 6;
+			pos.setXYZ(i, p.x + ndir.x * d + (side.x * Math.cos(ang) + up.x * Math.sin(ang)) * rad,
+				p.y + ndir.y * d + (side.y * Math.cos(ang) + up.y * Math.sin(ang)) * rad,
+				p.z + ndir.z * d + (side.z * Math.cos(ang) + up.z * Math.sin(ang)) * rad);
+		});
+		pos.needsUpdate = true;
+	}
+	// ghost for the slam combo: pulled in by the stream, held at GrabPoint, then thrown away
+	ghost.visible = fx.on && c.group === 'SlamCombo' && t > m('SuctionActive') - 0.3 && t < m('Recovery') + 0.3;
+	if (ghost.visible) {
+		const grab = m('Grab'), rel = m('Release');
+		if (t < grab) {
+			const f = THREE.MathUtils.clamp((t - (m('SuctionActive') - 0.3)) / (grab - m('SuctionActive') + 0.3), 0, 1);
+			ghost.position.copy(p).addScaledVector(ndir, 3.6 - 2.5 * f ** 2.2);
+			ghost.position.y += 0.15 * Math.sin(t * 9);
+		} else if (t < rel) {
+			B.GrabPoint.getWorldPosition(ghost.position);
+		} else {
+			const f = (t - rel) / 0.6;
+			B.GrabPoint.getWorldPosition(q);
+			ghost.position.copy(q).add(new THREE.Vector3(0, f * 1.4, f * 2.6));
+		}
+		const flatten = ghost.position.y < 0.45 ? 0.75 : 1;
+		ghost.scale.set(1 / Math.sqrt(flatten), flatten, 1 / Math.sqrt(flatten)).multiplyScalar(t > rel ? Math.max(0.01, 1 - (t - rel) / 0.7) : 1);
+		ghost.position.y = Math.max(0.3 * flatten, ghost.position.y);
+		ghost.lookAt(camera.position.x, ghost.position.y, camera.position.z);
+		ghost.rotation.z = Math.sin(t * 7) * 0.2;
+	}
+	for (const r of [...rings]) {
+		r.userData.t += dt;
+		const k = r.userData.t / 0.6;
+		r.scale.setScalar(1 + k * 5 * r.userData.strength);
+		r.material.opacity = Math.max(0, 0.8 * (1 - k));
+		if (k >= 1) { scene.remove(r); rings.splice(rings.indexOf(r), 1); r.geometry.dispose(); }
+	}
+}
+
+function rootMotion(c, t) {
+	if (!c.rootMotion) return null;
+	const rm = c.rootMotion;
+	let i = 0;
+	while (i < rm.length - 2 && rm[i + 1][0] < t) i++;
+	const [t0, ...a] = rm[i], [t1, ...b] = rm[i + 1];
+	const f = THREE.MathUtils.clamp((t - t0) / (t1 - t0), 0, 1);
+	return a.map((v, k) => v + (b[k] - v) * f);
+}
+
+// --- frame loop ---------------------------------------------------------------------
+const clock = new THREE.Clock();
+const follow = new THREE.Vector3();
+function frame() {
+	const dt = Math.min(clock.getDelta(), 0.05);
+	if (mixer && current) {
+		const c = info[current];
+		const a = bodyAction(current);
+		const frozen = performance.now() < freezeUntil;
+		if (!paused && !scrubbing && !frozen) mixer.update(dt * speed);
+		else if (faceAction && !paused) faceAction.time = (faceAction.time + dt * speed) % faceAction.getClip().duration;
+		const t = a.time;
+		// marker crossing (handles the loop wrap)
+		if (!paused && !scrubbing) {
+			for (const mk of c.markers) {
+				const crossed = t >= lastTime ? mk.time > lastTime && mk.time <= t : mk.time > lastTime || mk.time <= t;
+				if (crossed) onMarker(mk.name);
+			}
+		}
+		lastTime = t;
+		const rm = rootMotion(c, t);
+		if (rm) model.position.set(rm[0], rm[1], rm[2]); else model.position.set(0, 0, 0);
+		updateEffects(c, t, frozen ? 0 : dt * speed);
+		$('scrub').value = String(Math.round((t / c.duration) * 1000));
+		$('time').textContent = `${fmt(t)} / ${fmt(c.duration)} s`;
+		focus(follow);
+		const delta = follow.clone().sub(controls.target).multiplyScalar(capture ? 1 : 0.08);
+		controls.target.add(delta);
+		if (!tween) camera.position.add(delta);
+	}
+	if (tween) {
+		tween.t = Math.min(1, tween.t + dt / 0.7);
+		camera.position.lerpVectors(tween.from, tween.to, 1 - (1 - tween.t) ** 3);
+		if (tween.t >= 1) tween = null;
+	}
+	controls.update();
+	const off = new THREE.Vector3();
+	if (shake > 0.0005 && !reduceMotion) {
+		off.set((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+		camera.position.add(off);
+	}
+	shake *= Math.pow(0.02, dt);
+	renderer.render(scene, camera);
+	camera.position.sub(off);
+	requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__ready = true;
+
+// --- procedural bits ------------------------------------------------------------------
+function floorTexture() {
+	const c = document.createElement('canvas');
+	c.width = c.height = 1024;
+	const g = c.getContext('2d');
+	g.fillStyle = '#3a2c2a';
+	g.fillRect(0, 0, 1024, 1024);
+	for (let i = 0; i < 16; i++) {
+		g.fillStyle = i % 2 ? '#40312e' : '#36292a';
+		g.fillRect(0, i * 64, 1024, 62);
+		g.fillStyle = 'rgba(0,0,0,0.35)';
+		g.fillRect(0, i * 64 + 62, 1024, 2);
+		for (let k = 0; k < 3; k++) g.fillRect(((i * 397 + k * 331) % 1024), i * 64, 2, 62);
+	}
+	const vignette = g.createRadialGradient(512, 512, 120, 512, 512, 512);
+	vignette.addColorStop(0, 'rgba(0,0,0,0)');
+	vignette.addColorStop(1, 'rgba(26,21,38,1)');
+	g.fillStyle = vignette;
+	g.fillRect(0, 0, 1024, 1024);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 4;
+	t.repeat.set(1, 1);
+	return t;
+}
+
+function dotTexture() {
+	const c = document.createElement('canvas');
+	c.width = c.height = 32;
+	const g = c.getContext('2d');
+	const r = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+	r.addColorStop(0, 'rgba(255,255,255,1)');
+	r.addColorStop(1, 'rgba(255,255,255,0)');
+	g.fillStyle = r;
+	g.fillRect(0, 0, 32, 32);
+	return new THREE.CanvasTexture(c);
+}
+
+function makeGhost() {
+	const grp = new THREE.Group();
+	const mat = new THREE.MeshStandardMaterial({ color: 0xe8fbff, emissive: 0x5fd8ff, emissiveIntensity: 0.6, transparent: true, opacity: 0.82, roughness: 0.4 });
+	const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16), mat);
+	const tail = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.4, 20).rotateX(Math.PI).translate(0, -0.24, -0.05), mat);
+	const eyeM = new THREE.MeshBasicMaterial({ color: 0x1a1526 });
+	const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), eyeM);
+	const eyeR = eyeL.clone();
+	eyeL.position.set(0.09, 0.06, 0.25);
+	eyeR.position.set(-0.09, 0.06, 0.25);
+	const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), eyeM);
+	mouth.scale.set(1, 1.4, 0.4);
+	mouth.position.set(0, -0.07, 0.26);
+	grp.add(body, tail, eyeL, eyeR, mouth);
+	grp.visible = false;
+	return grp;
+}
+</script>
+</body>
+</html>

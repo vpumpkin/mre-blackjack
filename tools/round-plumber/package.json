@@ -1,0 +1,15 @@
+{
+  "name": "round-plumber-model",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Procedurally generated round plumber hero (rig, face rig, vacuum, flashlight) with a full animation set for Roblox",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "fbx": "python3 blender/export_fbx.py",
+    "viewer": "node embed.js"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}

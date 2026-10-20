@@ -1,0 +1,1102 @@
+[
+  {
+    "name": "Idle_Fear",
+    "group": "Idle_Fear",
+    "variant": null,
+    "duration": 6,
+    "loop": true,
+    "priority": "Idle",
+    "faceOnly": false,
+    "label": "Idle 1 – ängstliches Zittern",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Idle_LookAround",
+    "group": "Idle_LookAround",
+    "variant": null,
+    "duration": 6,
+    "loop": true,
+    "priority": "Idle",
+    "faceOnly": false,
+    "label": "Idle 2 – nervöses Umschauen",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Idle_Courage",
+    "group": "Idle_Courage",
+    "variant": null,
+    "duration": 6,
+    "loop": true,
+    "priority": "Idle",
+    "faceOnly": false,
+    "label": "Idle 3 – Mut sammeln",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Combat_Idle",
+    "group": "Combat_Idle",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Idle",
+    "faceOnly": false,
+    "label": "Combat Idle",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Run",
+    "group": "Run",
+    "variant": null,
+    "duration": 0.6,
+    "loop": true,
+    "priority": "Movement",
+    "faceOnly": false,
+    "label": "Laufen",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Start_A",
+    "group": "Vacuum_Start",
+    "variant": "A",
+    "duration": 1.6,
+    "loop": false,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Staubsauger ziehen A",
+    "markers": [
+      {
+        "name": "VacuumStart",
+        "time": 1.05
+      },
+      {
+        "name": "SuctionActive",
+        "time": 1.25
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Start_B",
+    "group": "Vacuum_Start",
+    "variant": "B",
+    "duration": 1.6,
+    "loop": false,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Staubsauger ziehen B (Quick-Draw)",
+    "markers": [
+      {
+        "name": "VacuumStart",
+        "time": 1.05
+      },
+      {
+        "name": "SuctionActive",
+        "time": 1.25
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Start_C",
+    "group": "Vacuum_Start",
+    "variant": "C",
+    "duration": 1.6,
+    "loop": false,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Staubsauger ziehen C (Fummeln)",
+    "markers": [
+      {
+        "name": "VacuumStart",
+        "time": 1.05
+      },
+      {
+        "name": "SuctionActive",
+        "time": 1.25
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Suck_A",
+    "group": "Vacuum_Suck",
+    "variant": "A",
+    "duration": 2.4,
+    "loop": true,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Saugen A",
+    "markers": [
+      {
+        "name": "SuctionActive",
+        "time": 0
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Suck_B",
+    "group": "Vacuum_Suck",
+    "variant": "B",
+    "duration": 2.4,
+    "loop": true,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Saugen B",
+    "markers": [
+      {
+        "name": "SuctionActive",
+        "time": 0
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Vacuum_Stop",
+    "group": "Vacuum_Stop",
+    "variant": null,
+    "duration": 0.8,
+    "loop": false,
+    "priority": "Action",
+    "faceOnly": false,
+    "label": "Staubsauger wegstecken",
+    "markers": [
+      {
+        "name": "VacuumStop",
+        "time": 0.08
+      },
+      {
+        "name": "Recovery",
+        "time": 0.6
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Attack_Uppercut",
+    "group": "Attack_Uppercut",
+    "variant": null,
+    "duration": 0.95,
+    "loop": false,
+    "priority": "Action2",
+    "faceOnly": false,
+    "label": "Aufwärtshieb",
+    "markers": [
+      {
+        "name": "HitboxStart",
+        "time": 0.2
+      },
+      {
+        "name": "Impact",
+        "time": 0.26
+      },
+      {
+        "name": "HitboxEnd",
+        "time": 0.34
+      },
+      {
+        "name": "Land",
+        "time": 0.62
+      },
+      {
+        "name": "Recovery",
+        "time": 0.8
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Flash_A",
+    "group": "Flash",
+    "variant": "A",
+    "duration": 1.3,
+    "loop": false,
+    "priority": "Action2",
+    "faceOnly": false,
+    "label": "Taschenlampe A (horizontal)",
+    "markers": [
+      {
+        "name": "Flash",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxStart",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxEnd",
+        "time": 0.74
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Flash_B",
+    "group": "Flash",
+    "variant": "B",
+    "duration": 1.3,
+    "loop": false,
+    "priority": "Action2",
+    "faceOnly": false,
+    "label": "Taschenlampe B (diagonal)",
+    "markers": [
+      {
+        "name": "Flash",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxStart",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxEnd",
+        "time": 0.74
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Flash_C",
+    "group": "Flash",
+    "variant": "C",
+    "duration": 1.3,
+    "loop": false,
+    "priority": "Action2",
+    "faceOnly": false,
+    "label": "Taschenlampe C (nach Ausweichen)",
+    "markers": [
+      {
+        "name": "Flash",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxStart",
+        "time": 0.62
+      },
+      {
+        "name": "HitboxEnd",
+        "time": 0.74
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "SlamCombo_A",
+    "group": "SlamCombo",
+    "variant": "A",
+    "duration": 4.8,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ultimate A – Einsaugen + 2× Slam",
+    "markers": [
+      {
+        "name": "VacuumStart",
+        "time": 0.55
+      },
+      {
+        "name": "SuctionActive",
+        "time": 0.7
+      },
+      {
+        "name": "Grab",
+        "time": 1.55
+      },
+      {
+        "name": "Slam01",
+        "time": 2.55
+      },
+      {
+        "name": "Slam02",
+        "time": 3.5
+      },
+      {
+        "name": "Release",
+        "time": 3.75
+      },
+      {
+        "name": "Recovery",
+        "time": 4.3
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "SlamCombo_B",
+    "group": "SlamCombo",
+    "variant": "B",
+    "duration": 4.8,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ultimate B – Hammerwurf-Slam",
+    "markers": [
+      {
+        "name": "VacuumStart",
+        "time": 0.55
+      },
+      {
+        "name": "SuctionActive",
+        "time": 0.7
+      },
+      {
+        "name": "Grab",
+        "time": 1.55
+      },
+      {
+        "name": "Slam01",
+        "time": 2.55
+      },
+      {
+        "name": "Slam02",
+        "time": 3.5
+      },
+      {
+        "name": "Release",
+        "time": 3.75
+      },
+      {
+        "name": "Recovery",
+        "time": 4.3
+      }
+    ],
+    "rootMotion": null
+  },
+  {
+    "name": "Dodge_Left_A",
+    "group": "Dodge_Left",
+    "variant": "A",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen links A (Sprung)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        0.4465,
+        0,
+        0
+      ],
+      [
+        0.1,
+        0.7942,
+        0,
+        0
+      ],
+      [
+        0.15,
+        1.0556,
+        0,
+        0
+      ],
+      [
+        0.2,
+        1.2428,
+        0,
+        0
+      ],
+      [
+        0.25,
+        1.3683,
+        0,
+        0
+      ],
+      [
+        0.3,
+        1.4444,
+        0,
+        0
+      ],
+      [
+        0.35,
+        1.4835,
+        0,
+        0
+      ],
+      [
+        0.4,
+        1.4979,
+        0,
+        0
+      ],
+      [
+        0.45,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.5,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.55,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.6,
+        1.5,
+        0,
+        0
+      ]
+    ]
+  },
+  {
+    "name": "Dodge_Left_B",
+    "group": "Dodge_Left",
+    "variant": "B",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen links B (Rolle)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        0.4465,
+        0,
+        0
+      ],
+      [
+        0.1,
+        0.7942,
+        0,
+        0
+      ],
+      [
+        0.15,
+        1.0556,
+        0,
+        0
+      ],
+      [
+        0.2,
+        1.2428,
+        0,
+        0
+      ],
+      [
+        0.25,
+        1.3683,
+        0,
+        0
+      ],
+      [
+        0.3,
+        1.4444,
+        0,
+        0
+      ],
+      [
+        0.35,
+        1.4835,
+        0,
+        0
+      ],
+      [
+        0.4,
+        1.4979,
+        0,
+        0
+      ],
+      [
+        0.45,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.5,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.55,
+        1.5,
+        0,
+        0
+      ],
+      [
+        0.6,
+        1.5,
+        0,
+        0
+      ]
+    ]
+  },
+  {
+    "name": "Dodge_Right_A",
+    "group": "Dodge_Right",
+    "variant": "A",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen rechts A (Sprung)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        -0.4465,
+        0,
+        0
+      ],
+      [
+        0.1,
+        -0.7942,
+        0,
+        0
+      ],
+      [
+        0.15,
+        -1.0556,
+        0,
+        0
+      ],
+      [
+        0.2,
+        -1.2428,
+        0,
+        0
+      ],
+      [
+        0.25,
+        -1.3683,
+        0,
+        0
+      ],
+      [
+        0.3,
+        -1.4444,
+        0,
+        0
+      ],
+      [
+        0.35,
+        -1.4835,
+        0,
+        0
+      ],
+      [
+        0.4,
+        -1.4979,
+        0,
+        0
+      ],
+      [
+        0.45,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.5,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.55,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.6,
+        -1.5,
+        0,
+        0
+      ]
+    ]
+  },
+  {
+    "name": "Dodge_Right_B",
+    "group": "Dodge_Right",
+    "variant": "B",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen rechts B (Rolle)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        -0.4465,
+        0,
+        0
+      ],
+      [
+        0.1,
+        -0.7942,
+        0,
+        0
+      ],
+      [
+        0.15,
+        -1.0556,
+        0,
+        0
+      ],
+      [
+        0.2,
+        -1.2428,
+        0,
+        0
+      ],
+      [
+        0.25,
+        -1.3683,
+        0,
+        0
+      ],
+      [
+        0.3,
+        -1.4444,
+        0,
+        0
+      ],
+      [
+        0.35,
+        -1.4835,
+        0,
+        0
+      ],
+      [
+        0.4,
+        -1.4979,
+        0,
+        0
+      ],
+      [
+        0.45,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.5,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.55,
+        -1.5,
+        0,
+        0
+      ],
+      [
+        0.6,
+        -1.5,
+        0,
+        0
+      ]
+    ]
+  },
+  {
+    "name": "Dodge_Back_A",
+    "group": "Dodge_Back",
+    "variant": "A",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen zurück A (Sprung)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        0,
+        0,
+        -0.387
+      ],
+      [
+        0.1,
+        0,
+        0,
+        -0.6883
+      ],
+      [
+        0.15,
+        0,
+        0,
+        -0.9148
+      ],
+      [
+        0.2,
+        0,
+        0,
+        -1.0771
+      ],
+      [
+        0.25,
+        0,
+        0,
+        -1.1859
+      ],
+      [
+        0.3,
+        0,
+        0,
+        -1.2519
+      ],
+      [
+        0.35,
+        0,
+        0,
+        -1.2857
+      ],
+      [
+        0.4,
+        0,
+        0,
+        -1.2982
+      ],
+      [
+        0.45,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.5,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.55,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.6,
+        0,
+        0,
+        -1.3
+      ]
+    ]
+  },
+  {
+    "name": "Dodge_Back_B",
+    "group": "Dodge_Back",
+    "variant": "B",
+    "duration": 0.6,
+    "loop": false,
+    "priority": "Action3",
+    "faceOnly": false,
+    "label": "Ausweichen zurück B (Rolle)",
+    "markers": [
+      {
+        "name": "IFrameStart",
+        "time": 0.06
+      },
+      {
+        "name": "IFrameEnd",
+        "time": 0.4
+      },
+      {
+        "name": "Land",
+        "time": 0.42
+      }
+    ],
+    "rootMotion": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.05,
+        0,
+        0,
+        -0.387
+      ],
+      [
+        0.1,
+        0,
+        0,
+        -0.6883
+      ],
+      [
+        0.15,
+        0,
+        0,
+        -0.9148
+      ],
+      [
+        0.2,
+        0,
+        0,
+        -1.0771
+      ],
+      [
+        0.25,
+        0,
+        0,
+        -1.1859
+      ],
+      [
+        0.3,
+        0,
+        0,
+        -1.2519
+      ],
+      [
+        0.35,
+        0,
+        0,
+        -1.2857
+      ],
+      [
+        0.4,
+        0,
+        0,
+        -1.2982
+      ],
+      [
+        0.45,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.5,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.55,
+        0,
+        0,
+        -1.3
+      ],
+      [
+        0.6,
+        0,
+        0,
+        -1.3
+      ]
+    ]
+  },
+  {
+    "name": "Face_Neutral",
+    "group": "Face_Neutral",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: neutral",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Afraid",
+    "group": "Face_Afraid",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: ängstlich",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Startled",
+    "group": "Face_Startled",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: erschrocken",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Panic",
+    "group": "Face_Panic",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: panisch",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Focused",
+    "group": "Face_Focused",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: konzentriert",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Angry",
+    "group": "Face_Angry",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: wütend",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Relieved",
+    "group": "Face_Relieved",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: erleichtert",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Proud",
+    "group": "Face_Proud",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: stolz",
+    "markers": [],
+    "rootMotion": null
+  },
+  {
+    "name": "Face_Confused",
+    "group": "Face_Confused",
+    "variant": null,
+    "duration": 2,
+    "loop": true,
+    "priority": "Action4",
+    "faceOnly": true,
+    "label": "Mimik: verwirrt",
+    "markers": [],
+    "rootMotion": null
+  }
+]
