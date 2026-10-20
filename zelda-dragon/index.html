@@ -46,7 +46,7 @@ body {
 .bars.off::after { transform: translateY(100%); }
 
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.title { max-width: 30rem; text-shadow: 0 2px 18px rgba(0,0,0,.65); }
+.title { max-width: 30rem; text-shadow: 0 1px 3px rgba(0,0,0,.6), 0 2px 18px rgba(0,0,0,.65); }
 .eyebrow {
   font-family: var(--display); font-weight: 500; font-size: .72rem; letter-spacing: .32em;
   text-transform: uppercase; color: var(--gold); margin: 0 0 .35rem;
@@ -120,6 +120,7 @@ h1 {
 
 @media (max-width: 640px) {
   .cmd kbd { display: none; }
+  .eyebrow { font-size: .6rem; letter-spacing: .2em; }
   .cmd { padding: .6rem .65rem; font-size: .66rem; letter-spacing: .1em; }
   .sub { font-size: .88rem; }
   .shot { display: none; }
@@ -204,13 +205,15 @@ const num = (k, d) => (params.has(k) ? parseFloat(params.get(k)) : d);
 const MODEL = {
   url: params.get('model') || 'assets/dragon.glb',
   yaw: num('yaw', 0),          // radians, turns the raw model so the head points to +Z
-  pitch: num('pitch', 0),
-  length: num('len', 17),      // longest horizontal side in world units
-  wingRoot: num('wroot', 0.2), // fraction of the half span where the wing starts to bend
+  pitch: num('pitch', 0.25),   // the Meshy pose climbs steeply; tip the nose down a little
+  length: num('len', 19),      // longest horizontal side in world units
+  wingRoot: num('wroot', 0.3),  // fraction of the half span where the wing starts to bend
   wingElbow: num('welbow', 0.58),
-  shoulderY: num('wy', 0.15),  // fraction of the height above the centre
-  tailZ: num('tail', -0.3),    // fraction of the half length where the tail starts to sway
-  neckZ: num('neck', 0.38),    // fraction of the half length where the neck starts
+  shoulderY: params.has('wy') ? num('wy', 0) : null, // fraction of the height; measured from the mesh when unset
+  restLeft: num('rl', -0.35),  // rest correction of the +X wing (raised high in the Meshy pose), radians
+  restRight: num('rr', 0.3),   // rest correction of the -X wing (hanging low)
+  tailZ: num('tail', -0.4),    // fraction of the half length where the tail starts to sway
+  neckZ: num('neck', 0.5),     // fraction of the half length where the neck starts
   flip: params.has('flip'),    // mirror Z if the model flies backwards
 };
 const DEBUG = params.has('debug');
@@ -302,7 +305,8 @@ function floatAttr(attr) {
 // ---------------------------------------------------------------------------
 const canvas = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 600;
+const DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? 1.5 : 1.75);
 renderer.setPixelRatio(DPR);
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -315,12 +319,12 @@ scene.fog = new THREE.FogExp2(FOG_COL.clone(), FOG_D);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.3, 6000);
 camera.position.set(0, 40, 160);
 
-const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: MOBILE ? 2 : 4 });
 const composer = new EffectComposer(renderer, rt);
 composer.setPixelRatio(DPR);
 composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.6, 1.25);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.42, 0.6, 1.3);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade = new ShaderPass({
@@ -347,7 +351,7 @@ composer.addPass(grade);
 // Lights
 const sun = new THREE.DirectionalLight(srgb('#ffd2a1'), 3.4);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.setScalar(MOBILE ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 200 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.04;
@@ -910,12 +914,13 @@ const rig = {
   mouth: new THREE.Vector3(0, 1, 8), rider: new THREE.Vector3(0, 3, 0),
   uniforms: {
     uFlap: { value: 0 }, uFlap2: { value: 0 }, uTime: { value: 0 }, uTailAmp: { value: 0.12 },
-    uNeckPitch: { value: 0 }, uNeckYaw: { value: 0 },
+    uNeckPitch: { value: 0 }, uNeckYaw: { value: 0 }, uRest: { value: new THREE.Vector2() },
     uWing: { value: new THREE.Vector4() }, uBody: { value: new THREE.Vector4() },
   },
 };
 const DEFORM_GLSL = `
 uniform float uFlap, uFlap2, uTime, uTailAmp, uNeckPitch, uNeckYaw;
+uniform vec2 uRest; // per-side rest correction of the wings (+X, -X)
 uniform vec4 uWing; // halfSpan, rootX, elbowX, shoulderY
 uniform vec4 uBody; // halfLen, tailZ, neckZ, neckY
 varying vec3 vDW;
@@ -927,8 +932,9 @@ void dragonDeform(inout vec3 p, inout vec3 n){
   vec2 q = vec2(X, p.y), nq = vec2(n.x * side, n.y);
   vec2 E = vec2(uWing.z, uWing.w), S = vec2(uWing.y, uWing.w);
   q = E + rot2(uFlap2 * we) * (q - E);
-  q = S + rot2(uFlap * ws) * (q - S);
-  nq = rot2(uFlap2 * we + uFlap * ws) * nq;
+  float shoulder = (uFlap + (side > 0.0 ? uRest.x : uRest.y)) * ws;
+  q = S + rot2(shoulder) * (q - S);
+  nq = rot2(uFlap2 * we + shoulder) * nq;
   p.x = q.x * side; p.y = q.y; n.x = nq.x * side; n.y = nq.y;
   float bodyW = 1.0 - ws;
   float wt = smoothstep(uBody.y, uBody.y - 0.55 * uBody.x, p.z) * bodyW;
@@ -952,7 +958,8 @@ function deformPoint(src, out) {
   const ws = ss(W.y, W.y + 0.2 * W.x, X), we = ss(W.z, W.z + 0.3 * W.x, X);
   let qx = X, qy = y;
   [qx, qy] = rot(qx - W.z, qy - W.w, u.uFlap2.value * we); qx += W.z; qy += W.w;
-  [qx, qy] = rot(qx - W.y, qy - W.w, u.uFlap.value * ws); qx += W.y; qy += W.w;
+  const rest = side > 0 ? u.uRest.value.x : u.uRest.value.y;
+  [qx, qy] = rot(qx - W.y, qy - W.w, (u.uFlap.value + rest) * ws); qx += W.y; qy += W.w;
   x = qx * side; y = qy;
   const bodyW = 1 - ws;
   const wt = ss(B.y, B.y - 0.55 * B.x, z) * bodyW;
@@ -989,7 +996,10 @@ function dragonDepthMaterial() {
 }
 
 async function loadDragon(onProgress) {
-  const gltf = await new GLTFLoader().loadAsync(MODEL.url, onProgress);
+  const loader = new GLTFLoader();
+  // decode textures through <img> + blob URLs instead of fetch(): works inside sandboxed frames too
+  loader.register((parser) => { parser.textureLoader = new THREE.TextureLoader(parser.options.manager); return { name: 'img-textures' }; });
+  const gltf = await loader.loadAsync(MODEL.url, onProgress);
   const src = gltf.scene;
   src.rotation.set(MODEL.pitch, MODEL.yaw, 0);
   if (MODEL.flip) src.scale.z = -1;
@@ -1032,14 +1042,23 @@ async function loadDragon(onProgress) {
   each((v) => { if (Math.abs(v.x) < rig.halfSpan * 0.14 && v.z > maxZ) maxZ = v.z; });
   each((v) => {
     if (Math.abs(v.x) < rig.halfSpan * 0.14 && v.z > maxZ - rig.halfLen * 0.07) { mouthAcc.add(v); mouthN++; }
-    if (Math.abs(v.x) < rig.halfSpan * 0.12 && Math.abs(v.z) < rig.halfLen * 0.3 && v.y > riderTop) { riderTop = v.y; riderZ = v.z; }
+  });
+  // rider: the highest point over the back, between the wings and behind the neck
+  each((v) => {
+    const dz = maxZ - v.z;
+    if (Math.abs(v.x) < rig.halfSpan * 0.2 && dz > rig.halfLen * 0.45 && dz < rig.halfLen && v.y > riderTop) { riderTop = v.y; riderZ = v.z; }
   });
   rig.mouth.copy(mouthAcc.divideScalar(Math.max(mouthN, 1)));
   if (params.has('mouth')) rig.mouth.fromArray(params.get('mouth').split(',').map(Number));
   rig.rider.set(0, riderTop, riderZ);
-  const shoulderY = rig.height * MODEL.shoulderY;
+  // shoulder pivot: mean height of the mesh where the wings leave the body
+  let shoulderY = 0, sn = 0;
+  if (MODEL.shoulderY !== null) { shoulderY = rig.height * MODEL.shoulderY; sn = 1; }
+  else each((v) => { const X = Math.abs(v.x); if (Math.abs(X - rig.halfSpan * MODEL.wingRoot) < rig.halfSpan * 0.05 && Math.abs(v.z) < rig.halfLen * 0.4) { shoulderY += v.y; sn++; } });
+  shoulderY /= Math.max(sn, 1);
+  rig.uniforms.uRest.value.set(MODEL.restLeft, MODEL.restRight);
   rig.uniforms.uWing.value.set(rig.halfSpan, rig.halfSpan * MODEL.wingRoot, rig.halfSpan * MODEL.wingElbow, shoulderY);
-  rig.uniforms.uBody.value.set(rig.halfLen, rig.halfLen * MODEL.tailZ, rig.halfLen * MODEL.neckZ, rig.mouth.y * 0.4);
+  rig.uniforms.uBody.value.set(rig.halfLen, rig.halfLen * MODEL.tailZ, rig.halfLen * MODEL.neckZ, rig.mouth.y);
   rig.ready = true;
 }
 
@@ -1066,7 +1085,7 @@ function particleSystem({ count, blend, vert, frag }) {
   scene.add(pts);
   let cursor = 0;
   return {
-    mat,
+    mat, pts,
     emit(p, v, lifeSpan, sz) {
       const i = cursor; cursor = (cursor + 1) % count;
       pos.set([p.x, p.y, p.z], i * 3); vel.set([v.x, v.y, v.z], i * 3);
@@ -1093,7 +1112,7 @@ const PARTICLE_VERT = `
     vLife = aLife; vSeed = aSeed;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
-    float grow = mix(0.5, 2.6, sqrt(clamp(aLife, 0.0, 1.0)));
+    float grow = mix(0.9, 2.6, sqrt(clamp(aLife, 0.0, 1.0)));
     gl_PointSize = aLife > 1.0 ? 0.0 : min(aSize * grow * uPx / max(-mv.z, 0.5), 420.0);
   }`;
 const flames = particleSystem({
@@ -1106,13 +1125,13 @@ const flames = particleSystem({
       float r = length(c) * 2.0;
       float n = fbm(c * 3.2 + vec2(vSeed * 17.0, vSeed * 9.0 - uTime * 3.0));
       float m = smoothstep(1.0, 0.25, r + (n - 0.5) * 0.9);
-      vec3 hot = vec3(3.4, 2.2, 0.85), mid = vec3(2.5, 0.42, 0.04), cool = vec3(0.4, 0.04, 0.02);
-      vec3 col = mix(hot, mid, smoothstep(0.0, 0.2, vLife + (n - 0.5) * 0.25));
+      vec3 hot = vec3(2.3, 0.78, 0.1), mid = vec3(1.7, 0.2, 0.02), cool = vec3(0.3, 0.03, 0.02);
+      vec3 col = mix(hot, mid, smoothstep(0.0, 0.14, vLife + (n - 0.5) * 0.2));
       col = mix(col, cool, smoothstep(0.3, 0.85, vLife));
       float fade = 1.0 - smoothstep(0.45, 1.0, vLife);
       float cover = m * fade;
       // premultiplied: the flame body hides what is behind it while the hot core still feeds the bloom
-      gl_FragColor = vec4(col * cover * 0.55, cover * 0.5);
+      gl_FragColor = vec4(col * cover * 0.7, cover * 0.68);
     }`,
 });
 const smoke = particleSystem({
@@ -1121,8 +1140,8 @@ const smoke = particleSystem({
     varying float vLife, vSeed;
     void main(){
       float r = length(gl_PointCoord - 0.5) * 2.0;
-      float m = smoothstep(1.0, 0.2, r) * smoothstep(0.15, 0.4, vLife) * (1.0 - smoothstep(0.5, 1.0, vLife));
-      gl_FragColor = vec4(mix(vec3(0.16, 0.09, 0.08), vec3(0.32, 0.24, 0.26), vLife), m * 0.45);
+      float m = smoothstep(1.0, 0.2, r) * smoothstep(0.3, 0.55, vLife) * (1.0 - smoothstep(0.6, 1.0, vLife));
+      gl_FragColor = vec4(mix(vec3(0.05, 0.03, 0.03), vec3(0.13, 0.09, 0.1), vLife), m * 0.32);
     }`,
 });
 const sparks = particleSystem({
@@ -1131,6 +1150,9 @@ const sparks = particleSystem({
     varying float vLife;
     void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; gl_FragColor = vec4(vec3(5.0, 2.2, 0.6) * smoothstep(1.0, 0.0, r) * (1.0 - vLife), 1.0); }`,
 });
+smoke.pts.renderOrder = 1; // soot behind the flames, flames on top
+flames.pts.renderOrder = 2;
+sparks.pts.renderOrder = 3;
 const fireLight = new THREE.PointLight(srgb('#ff8a3a'), 0, 70, 1.6);
 scene.add(fireLight);
 
@@ -1161,7 +1183,7 @@ const streaks = (() => {
       seg.set([d.x, d.y, d.z, d.x, d.y, d.z + d.l], i * 6);
     });
     g.attributes.position.needsUpdate = true;
-    lines.material.opacity = clamp((speed - 20) / 40, 0.06, 0.28);
+    lines.material.opacity = clamp((speed - 20) / 80, 0.04, 0.12);
   };
 })();
 
@@ -1258,7 +1280,8 @@ function updateDragon(dt) {
   dummy.up.copy(UP);
   dummy.lookAt(tmpV2.copy(pos).add(T));
   const left = tmpV2.set(1, 0, 0).applyQuaternion(dummy.quaternion);
-  const targetBank = -Math.atan((curv.dot(left) * s.speed * s.speed) / 26);
+  // the Meshy pose already leans into the right-hand turn, so only part of the bank is added
+  const targetBank = -0.6 * Math.atan((curv.dot(left) * s.speed * s.speed) / 26);
   s.bank = damp(s.bank, clamp(targetBank, -1.0, 1.0), 2.5, dt);
   dummy.rotateZ(s.bank);
   dragon.position.copy(pos);
@@ -1295,7 +1318,7 @@ function updateDragon(dt) {
     s.fire.t += dt;
     const k = s.fire.t;
     if (k < BREATH_CHARGE) { neckPitch += 0.25 * smoothstep01(k / BREATH_CHARGE); }
-    else { breathing = k < s.fire.dur; neckPitch += lerp(0.25, -0.14, smoothstep01((k - BREATH_CHARGE) / 0.25)); glide = Math.max(glide, 0.8); }
+    else { breathing = k < s.fire.dur; neckPitch += lerp(0.25, 0.06, smoothstep01((k - BREATH_CHARGE) / 0.25)); glide = Math.max(glide, 0.8); }
     if (k >= s.fire.dur + 0.4) s.fire.t = -1;
   }
 
@@ -1306,8 +1329,8 @@ function updateDragon(dt) {
   s.flapPhase += dt * Math.PI * 2 * lerp(0.55, 0.95, s.flapAmp) * (1 + flapBoost * 0.5);
   const ph = s.flapPhase, wave = Math.sin(ph + 0.35 * Math.sin(ph));
   const u = rig.uniforms;
-  u.uFlap.value = THREE.MathUtils.degToRad(6 + 38 * wave * s.flapAmp);
-  u.uFlap2.value = THREE.MathUtils.degToRad(-4 + 26 * Math.sin(ph - 0.75) * s.flapAmp);
+  u.uFlap.value = THREE.MathUtils.degToRad(26 * wave * s.flapAmp);
+  u.uFlap2.value = THREE.MathUtils.degToRad(15 * Math.sin(ph - 0.75) * s.flapAmp);
   u.uTime.value = s.t;
   u.uNeckPitch.value = damp(u.uNeckPitch.value, neckPitch, 8, dt);
   u.uNeckYaw.value = damp(u.uNeckYaw.value, neckYaw, 3, dt);
@@ -1324,20 +1347,21 @@ function updateDragon(dt) {
     deformPoint(rig.mouth, mouthLocal);
     mouthTip.copy(mouthLocal).add(tmpV.set(0, 0, rig.halfLen * 0.04));
     body.localToWorld(mouthW.copy(mouthTip));
-    deformPoint(tmpV.copy(rig.mouth).add(tmpV2.set(0, -0.15, 1)), tmpV2);
+    deformPoint(tmpV.copy(rig.mouth).add(tmpV2.set(0, 0.12, 1)), tmpV2);
     body.localToWorld(tmpV2);
     mouthDir.copy(tmpV2).sub(body.localToWorld(tmpV.copy(mouthLocal))).normalize();
     const vel = tmpV.copy(mouthW).sub(prevMouth).divideScalar(Math.max(dt, 1e-3));
     prevMouth.copy(mouthW);
     if (breathing) {
-      const n = Math.floor(dt * 380 + Math.random());
+      const n = Math.floor(dt * 460 + Math.random());
       for (let i = 0; i < n; i++) {
         const spread = 0.11, dir = tmpV2.copy(mouthDir).add(new THREE.Vector3((Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread)).normalize();
         const sp = 52 + Math.random() * 18;
         const v = dir.multiplyScalar(sp).addScaledVector(vel, 0.85);
-        const start = mouthW.clone().addScaledVector(v, Math.random() * dt);
-        flames.emit(start, v, 0.7 + Math.random() * 0.5, 0.7 + Math.random() * 0.6);
-        if (Math.random() < 0.18) smoke.emit(start, v.clone().multiplyScalar(0.7), 1.6 + Math.random() * 0.8, 3 + Math.random() * 2);
+        // back-date the spawn by one step so the jet starts right at the jaws after this frame's update
+        const start = mouthW.clone().addScaledVector(v, (Math.random() - 1) * dt);
+        flames.emit(start, v, 0.7 + Math.random() * 0.5, 0.9 + Math.random() * 0.7);
+        if (Math.random() < 0.14) smoke.emit(start, v.clone().multiplyScalar(0.75), 1.6 + Math.random() * 0.8, 2.6 + Math.random() * 1.6);
         if (Math.random() < 0.12) sparks.emit(start, v.clone().multiplyScalar(0.6).add(new THREE.Vector3((Math.random() - 0.5) * 30, Math.random() * 18, (Math.random() - 0.5) * 30)), 1.2 + Math.random(), 0.18);
       }
       s.shake = Math.max(s.shake, 0.35);
@@ -1373,6 +1397,8 @@ const cam = { pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE
 const flat = (x, y, z, out) => out.copy(dragon.position).addScaledVector(Xf, x).addScaledVector(UP, y).addScaledVector(Zf, z);
 const full = (x, y, z, out) => out.copy(dragon.position).addScaledVector(Xd, x).addScaledVector(Yd, y).addScaledVector(Zd, z);
 const desired = new THREE.Vector3(), desiredLook = new THREE.Vector3();
+// shots are framed for 16:9; on tall screens widen the vertical angle so the dragon stays in frame
+const fitFov = (fov) => { const a = camera.aspect; return a >= 1.4 ? fov : clamp(fov * (1 + (16 / 9 / a - 1) * 0.35), fov, 95); };
 const L = () => MODEL.length;
 const SHOTS = {
   wide: {
@@ -1417,8 +1443,8 @@ const SHOTS = {
   rider: {
     name: 'Reiterblick', dur: 8,
     update() {
-      full(0, rig.rider.y + rig.height * 0.4, rig.rider.z - L() * 0.48, desired);
-      full(0, rig.rider.y * 0.6, rig.rider.z + L() * 1.2, desiredLook);
+      full(-L() * 0.08, rig.rider.y + L() * 0.24, rig.rider.z - L() * 0.78, desired);
+      full(0, rig.rider.y * 0.3, rig.rider.z + L() * 1.2, desiredLook);
       cam.fov = 64; cam.k = 12; cam.lk = 12; cam.up.copy(Yd);
     },
   },
@@ -1434,12 +1460,12 @@ const SHOTS = {
   },
   front: {
     name: 'Frontal', dur: 7,
-    update() { flat(-L() * 0.35, 2.5, L() * 1.5, desired); flat(0, 1.2, 0, desiredLook); cam.fov = 44; cam.k = 3; cam.lk = 8; cam.up.copy(UP); },
+    update() { flat(-L() * 0.5, rig.mouth.y + 1, L() * 1.9, desired); flat(0, rig.mouth.y * 0.3, L() * 0.15, desiredLook); cam.fov = 46; cam.k = 3; cam.lk = 8; cam.up.copy(UP); },
   },
 };
 const SEQUENCE = [
   ['wide', null], ['chase', [4.2, doRoll]], ['side', [2.0, doFire]], ['hero', null],
-  ['rider', null], ['orbit', [3.0, doRoar]], ['front', [2.4, doFire]],
+  ['rider', null], ['orbit', [3.0, doFire]], ['front', [2.0, doRoar]],
 ];
 const director = { i: 0, t: 0, auto: true, free: false, acted: false };
 const shotEl = document.getElementById('shot'), shotName = document.getElementById('shotName'), shotNo = document.getElementById('shotNo');
@@ -1453,7 +1479,7 @@ function cut(i) {
   camera.position.copy(desired);
   cam.look.copy(desiredLook);
   camera.up.copy(cam.up);
-  camera.fov = cam.fov;
+  camera.fov = fitFov(cam.fov);
   shotName.textContent = shot.name;
   shotNo.textContent = `Kamera ${director.i + 1} / ${SEQUENCE.length}`;
   shotEl.classList.remove('show'); void shotEl.offsetWidth; shotEl.classList.add('show');
@@ -1464,7 +1490,7 @@ function updateCamera(dt) {
   if (director.free) {
     tmpV.copy(dragon.position).sub(controls.target);
     camera.position.add(tmpV); controls.target.copy(dragon.position);
-    camera.fov = damp(camera.fov, 50, 3, dt);
+    camera.fov = damp(camera.fov, fitFov(50), 3, dt);
     controls.update();
   } else {
     const [key, action] = SEQUENCE[director.i], shot = SHOTS[key];
@@ -1473,7 +1499,7 @@ function updateCamera(dt) {
     camera.position.lerp(desired, 1 - Math.exp(-cam.k * dt));
     cam.look.lerp(desiredLook, 1 - Math.exp(-cam.lk * dt));
     camera.up.lerp(cam.up, 1 - Math.exp(-5 * dt)).normalize();
-    camera.fov = damp(camera.fov, cam.fov, 4, dt);
+    camera.fov = damp(camera.fov, fitFov(cam.fov), 4, dt);
     camera.lookAt(cam.look);
     if (action && director.auto && !director.acted && director.t > action[0]) { director.acted = true; action[1](); }
     if (director.auto && director.t > shot.dur * (REDUCED ? 1.5 : 1)) cut(director.i + 1);
@@ -1500,6 +1526,7 @@ function setFree(on) {
 // ---------------------------------------------------------------------------
 // UI wiring
 // ---------------------------------------------------------------------------
+if (matchMedia('(pointer: coarse)').matches) document.getElementById('hint').textContent = 'Wischen zum Umsehen';
 document.getElementById('bFire').onclick = doFire;
 document.getElementById('bRoll').onclick = doRoll;
 document.getElementById('bRoar').onclick = doRoar;
@@ -1561,7 +1588,7 @@ function tick() {
   frame++;
 }
 renderer.setAnimationLoop(tick);
-window.__dbg = { THREE, scene, camera, controls, dragon, body, state, director, rig, sky, cloudSea, clouds, cut, SHOTS, setFree, doFire, doRoll, doRoar, updateDragon, updateCamera };
+window.__dbg = { THREE, scene, camera, controls, dragon, body, state, flames, mouthW, mouthDir, director, rig, sky, cloudSea, clouds, cut, SHOTS, setFree, doFire, doRoll, doRoar, updateDragon, updateCamera };
 
 // ---------------------------------------------------------------------------
 // Boot
