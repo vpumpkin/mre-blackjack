@@ -382,7 +382,7 @@ try {
 	select(params.get('clip') || 'Idle_Fear', true);
 	setView(Number(params.get('view') || 0), true);
 	if (params.get('face')) setFace(params.get('face'));
-	if (params.has('t')) { paused = true; seek(Number(params.get('t'))); }
+	if (params.has('t')) { paused = true; $('play').textContent = 'Abspielen'; seek(Number(params.get('t'))); }
 } catch (err) {
 	$('notice').textContent = `Das Modell konnte nicht geladen werden (${err.message}).`;
 	console.error(err);
@@ -464,10 +464,11 @@ function select(name, instant = false) {
 	next.reset();
 	next.setLoop(THREE.LoopRepeat, Infinity);
 	next.play();
-	if (prev && prev !== next && !instant) prev.crossFadeTo(next, 0.18, false);
+	// crossfades only progress while the mixer advances, so switch directly when paused
+	if (prev && prev !== next && !instant && !paused) prev.crossFadeTo(next, 0.18, false);
 	else if (prev && prev !== next) prev.stop();
 	current = name;
-	lastTime = 0;
+	lastTime = -1; // so a marker at t = 0 fires on the first frame
 	model.position.set(0, 0, 0);
 	ghost.visible = false;
 	document.querySelectorAll('.clip').forEach((b) => b.setAttribute('aria-current', String(b.dataset.clip === name)));
@@ -483,6 +484,7 @@ function select(name, instant = false) {
 	$('markerList').innerHTML = c.markers.length
 		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${m.name}</div>`).join('')
 		: 'Keine Marker (Loop ohne Gameplay-Ereignisse)';
+	if (paused) mixer.update(0);
 }
 
 function setFace(key) {
@@ -498,6 +500,7 @@ function setFace(key) {
 		if (was !== now) { was.stop(); now.reset().play(); now.time = t; }
 	}
 	document.querySelectorAll('[data-face]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.face === key)));
+	if (mixer) mixer.update(0);
 }
 
 function seek(t) {
@@ -517,8 +520,8 @@ let scrubbing = false;
 $('scrub').addEventListener('input', (e) => { scrubbing = true; seek((Number(e.target.value) / 1000) * info[current].duration); });
 $('scrub').addEventListener('change', () => { scrubbing = false; });
 addEventListener('keydown', (e) => {
+	if (e.key === ' ' && !e.target.closest('input:not([type=range])')) { e.preventDefault(); $('play').click(); return; }
 	if (e.target.closest('input')) return;
-	if (e.key === ' ') { e.preventDefault(); $('play').click(); }
 	const order = [...document.querySelectorAll('.clip')].map((b) => b.dataset.clip);
 	const i = order.indexOf(current);
 	if (e.key === 'ArrowDown' || e.key === 'ArrowRight') select(order[(i + 1) % order.length]);
@@ -617,8 +620,10 @@ function updateEffects(c, t, dt) {
 		const grab = m('Grab'), rel = m('Release');
 		if (t < grab) {
 			const f = THREE.MathUtils.clamp((t - (m('SuctionActive') - 0.3)) / (grab - m('SuctionActive') + 0.3), 0, 1);
-			ghost.position.copy(p).addScaledVector(ndir, 3.6 - 2.5 * f ** 2.2);
-			ghost.position.y += 0.15 * Math.sin(t * 9);
+			const far = p.clone().addScaledVector(ndir, 3.6);
+			far.y += 0.15 * Math.sin(t * 9) * (1 - f);
+			B.GrabPoint.getWorldPosition(q);
+			ghost.position.lerpVectors(far, q, f ** 2.2); // accelerates into the stream and lands exactly on the grab point
 		} else if (t < rel) {
 			B.GrabPoint.getWorldPosition(ghost.position);
 		} else {
