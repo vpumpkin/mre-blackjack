@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drachenreiter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+	/* Layout: full-bleed 3D stage; title + stats float top, clip selector docks at the bottom. Single dark look on purpose (a lit stage). */
+	:root {
+		--bg: #0c090a;
+		--panel: rgba(22, 15, 14, 0.78);
+		--line: rgba(239, 226, 208, 0.14);
+		--fg: #efe2d0;
+		--muted: #a9978a;
+		--ember: #ff7a2f;
+		--ember-soft: rgba(255, 122, 47, 0.16);
+		--leaf: #5dbb72;
+		--font-display: "Grenze Gotisch", "UnifrakturMaguntia", Georgia, serif;
+		--font-body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+		--font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+		--gutter-l: max(16px, env(safe-area-inset-left, 0px));
+		--gutter-r: max(16px, env(safe-area-inset-right, 0px));
+		color-scheme: dark;
+	}
+	[hidden] { display: none !important; }
+	html, body { height: 100%; margin: 0; }
+	body {
+		background: var(--bg);
+		color: var(--fg);
+		font-family: var(--font-body);
+		font-size: 15px;
+		overflow: hidden;
+	}
+	#stage { position: fixed; inset: 0; }
+	#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+	.hud {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		padding-block: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-bottom, 0px));
+		padding-left: var(--gutter-l);
+		padding-right: var(--gutter-r);
+		gap: 12px;
+	}
+	.hud > * { pointer-events: auto; }
+	.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; pointer-events: none; }
+	.top > * { pointer-events: auto; }
+
+	.title { max-width: 30rem; min-width: 0; }
+	.eyebrow {
+		font-family: var(--font-data);
+		font-size: 11px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--ember);
+		margin: 0 0 4px;
+	}
+	h1 {
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: clamp(2.4rem, 6vw, 3.6rem);
+		line-height: 0.95;
+		margin: 0;
+		text-wrap: balance;
+		text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+	}
+	.lede { margin: 8px 0 0; color: var(--muted); line-height: 1.45; max-width: 26rem; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); }
+
+	.stats {
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		min-width: 0;
+	}
+	.stats summary {
+		cursor: pointer;
+		list-style: none;
+		padding: 10px 14px;
+		font-family: var(--font-data);
+		font-size: 11px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--muted);
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+	}
+	.stats summary::-webkit-details-marker { display: none; }
+	.stats summary::after { content: "+"; color: var(--ember); }
+	.stats[open] summary::after { content: "–"; }
+	.stats dl {
+		margin: 0;
+		padding: 0 14px 12px;
+		display: grid;
+		grid-template-columns: auto auto;
+		gap: 6px 18px;
+		font-size: 13px;
+	}
+	.stats dt { color: var(--muted); }
+	.stats dd { margin: 0; text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+	.bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+	.clips {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px;
+		width: min(560px, 100%);
+		padding: 6px;
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
+	.clip {
+		appearance: none;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--fg);
+		border-radius: 9px;
+		padding: 9px 10px 10px;
+		cursor: pointer;
+		display: grid;
+		grid-template-columns: auto 1fr;
+		grid-template-rows: auto auto;
+		column-gap: 10px;
+		text-align: left;
+		font: inherit;
+		transition: background 160ms ease, border-color 160ms ease;
+	}
+	.clip:hover { background: rgba(239, 226, 208, 0.06); }
+	.clip:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+	.clip[aria-pressed="true"] { background: var(--ember-soft); border-color: rgba(255, 122, 47, 0.55); }
+	.clip kbd {
+		grid-row: span 2;
+		align-self: center;
+		font-family: var(--font-data);
+		font-size: 11px;
+		color: var(--muted);
+		border: 1px solid var(--line);
+		border-radius: 5px;
+		padding: 2px 6px;
+	}
+	.clip[aria-pressed="true"] kbd { color: var(--ember); border-color: rgba(255, 122, 47, 0.5); }
+	.clip-name { font-weight: 700; font-size: 16px; }
+	.clip-meta { font-family: var(--font-data); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+	.transport {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		gap: 8px 14px;
+		width: min(560px, 100%);
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.timeline { flex: 1 1 180px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+	.track { flex: 1; height: 3px; background: var(--line); border-radius: 3px; overflow: hidden; }
+	.track i { display: block; height: 100%; width: 0; background: var(--ember); }
+	.time { font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.btn {
+		appearance: none;
+		font: inherit;
+		font-size: 13px;
+		color: var(--fg);
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		padding: 6px 10px;
+		cursor: pointer;
+	}
+	.btn:hover { border-color: rgba(239, 226, 208, 0.32); }
+	.btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+	.btn[aria-pressed="true"] { color: var(--leaf); border-color: rgba(93, 187, 114, 0.5); }
+	label.speed { display: inline-flex; align-items: center; gap: 8px; }
+	label.speed input { accent-color: var(--ember); width: 90px; }
+	.speed output { font-family: var(--font-data); font-size: 11px; color: var(--fg); min-width: 3.2em; }
+
+	.notice {
+		position: fixed;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		text-align: center;
+		padding-left: var(--gutter-l);
+		padding-right: var(--gutter-r);
+		color: var(--muted);
+		font-family: var(--font-data);
+		font-size: 12px;
+		letter-spacing: 0.08em;
+		pointer-events: none;
+	}
+
+	@media (max-width: 560px) {
+		.lede, .clip-frames { display: none; }
+		.stats { order: 2; }
+		.clip { grid-template-columns: 1fr; padding: 8px; }
+		.clip kbd { display: none; }
+		.clip-name { font-size: 15px; }
+	}
+	body.capture .hud, body.capture .notice { display: none; }
+</style>
+</head>
+<body>
+
+<div id="stage" aria-label="3D-Ansicht: Drache mit Reiter. Ziehen zum Drehen, Scrollen oder Pinch zum Zoomen."></div>
+
+<div class="hud">
+	<div class="top">
+		<header class="title">
+			<p class="eyebrow">glTF 2.0 · Skinned Mesh · 3 Animationen</p>
+			<h1>Drachenreiter</h1>
+			<p class="lede">Ein Feuerdrache mit grün gekleidetem Elfenhelden, Schwert links, Schild rechts. Ziehen zum Drehen, Mausrad oder zwei Finger zum Zoomen.</p>
+		</header>
+		<details class="stats" id="stats" open>
+			<summary>Modell</summary>
+			<dl>
+				<dt>Dreiecke</dt><dd id="s-tris">–</dd>
+				<dt>Knochen</dt><dd id="s-bones">–</dd>
+				<dt>Länge</dt><dd id="s-len">–</dd>
+				<dt>Spannweite</dt><dd id="s-span">–</dd>
+				<dt>Dateigröße</dt><dd id="s-size">–</dd>
+			</dl>
+		</details>
+	</div>
+
+	<div class="bottom">
+		<div class="clips" role="group" aria-label="Animation wählen" id="clips"></div>
+		<div class="transport">
+			<button class="btn" id="play" type="button" aria-label="Pause">Pause</button>
+			<div class="timeline"><div class="track"><i id="progress"></i></div><span class="time" id="time">0,00 / 0,00 s</span></div>
+			<label class="speed" for="speed">Tempo <input id="speed" type="range" min="0.25" max="2" step="0.25" value="1"><output id="speed-out" for="speed">1,00×</output></label>
+			<button class="btn" id="rotate" type="button" aria-pressed="false">Auto-Drehen</button>
+			<button class="btn" id="view" type="button">Ansicht: Totale</button>
+		</div>
+	</div>
+</div>
+
+<div class="notice" id="notice">Modell wird geladen …</div>
+
+<!--GLB-->
+
+<script type="importmap">
+{
+	"imports": {
+		"three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+		"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+	}
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const params = new URLSearchParams(location.search);
+const capture = params.has('capture');
+if (capture) document.body.classList.add('capture');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const notice = document.getElementById('notice');
+const fmt = (n, d = 2) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const CLIP_INFO = {
+	Idle: { label: 'Idle', key: '1' },
+	Angriff: { label: 'Angriff', key: '2' },
+	Flug: { label: 'Flug', key: '3' },
+};
+
+// --- renderer / scene -------------------------------------------------------
+const stage = document.getElementById('stage');
+let renderer;
+try {
+	renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: capture });
+} catch (err) {
+	notice.textContent = 'WebGL ist in diesem Browser nicht verfügbar. Bitte Hardwarebeschleunigung aktivieren.';
+	throw err;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = skyTexture();
+scene.fog = new THREE.Fog(0x1a110f, 30, 120);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.45;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 300);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 3;
+controls.maxDistance = 60;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.autoRotateSpeed = 0.6;
+
+scene.add(new THREE.HemisphereLight(0x9fb2d9, 0x3a1c12, 0.9));
+const key = new THREE.DirectionalLight(0xffe2c4, 2.8);
+key.position.set(14, 22, 12);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 70 });
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.03;
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0x7fa6ff, 2.2);
+rim.position.set(-16, 10, -18);
+scene.add(rim);
+const fireLight = new THREE.PointLight(0xff7a2a, 0, 26, 1.6);
+scene.add(fireLight);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(160, 96), new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 0.95, metalness: 0 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const embers = makeEmbers();
+scene.add(embers);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.7, 0.4, 2.4);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function resize() {
+	const w = innerWidth, h = innerHeight;
+	renderer.setSize(w, h, false);
+	composer.setSize(w, h);
+	camera.aspect = w / h;
+	camera.fov = w < 600 ? 50 : 38;
+	camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+// --- model ------------------------------------------------------------------
+async function loadBytes() {
+	const embedded = document.getElementById('glb-data');
+	if (embedded) {
+		const bin = atob(embedded.textContent.trim());
+		const bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+		return bytes.buffer;
+	}
+	const res = await fetch(params.get('src') || '../../public/dragon-rider.glb');
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	return res.arrayBuffer();
+}
+
+let mixer, actions = {}, current, model, fireNode, chest, paused = false, speed = 1, tween = null;
+const clock = new THREE.Clock();
+const views = [
+	{ name: 'Totale', dir: [0.62, 0.3, 0.72], dist: 24 },
+	{ name: 'Seite', dir: [1, 0.12, 0.02], dist: 24 },
+	{ name: 'Reiter', dir: [0.9, 0.3, 0.5], dist: 6, rider: true },
+	{ name: 'Hinten', dir: [-0.45, 0.42, -0.78], dist: 23 },
+];
+let viewIndex = 0;
+
+try {
+	const buffer = await loadBytes();
+	const gltf = await new GLTFLoader().parseAsync(buffer, '');
+	model = gltf.scene;
+	let tris = 0, bones = new Set();
+	model.traverse((o) => {
+		if (o.isMesh) {
+			o.castShadow = true;
+			o.receiveShadow = true;
+			o.frustumCulled = false;
+			tris += o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+		}
+		if (o.isSkinnedMesh) o.skeleton.bones.forEach((b) => bones.add(b));
+	});
+	scene.add(model);
+	fireNode = model.getObjectByName('Fire');
+	chest = model.getObjectByName('chest');
+	const box = new THREE.Box3().setFromObject(model);
+	const size = box.getSize(new THREE.Vector3());
+	document.getElementById('s-tris').textContent = tris.toLocaleString('de-DE');
+	document.getElementById('s-bones').textContent = bones.size;
+	document.getElementById('s-len').textContent = `${fmt(size.z, 1)} m`;
+	document.getElementById('s-span').textContent = `${fmt(size.x, 1)} m`;
+	document.getElementById('s-size').textContent = `${fmt(buffer.byteLength / 1048576, 1)} MB`;
+
+	mixer = new THREE.AnimationMixer(model);
+	const clipsEl = document.getElementById('clips');
+	for (const clip of gltf.animations) {
+		actions[clip.name] = mixer.clipAction(clip);
+		const info = CLIP_INFO[clip.name] || { label: clip.name, key: '' };
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'clip';
+		b.dataset.clip = clip.name;
+		b.setAttribute('aria-pressed', 'false');
+		b.innerHTML = `<kbd>${info.key}</kbd><span class="clip-name">${info.label}</span><span class="clip-meta">${fmt(clip.duration, 1)} s<span class="clip-frames"> · ${Math.round(clip.duration * 30)} Frames</span></span>`;
+		b.addEventListener('click', () => play(clip.name));
+		clipsEl.appendChild(b);
+	}
+	if (innerWidth < 560) document.getElementById('stats').open = false;
+	play(params.get('clip') || 'Idle', 0);
+	setView(Number(params.get('view') || 0), true);
+	notice.hidden = true;
+	if (params.has('t')) {
+		paused = true;
+		current.time = Number(params.get('t'));
+		mixer.update(0);
+	}
+} catch (err) {
+	notice.textContent = `Das Modell konnte nicht geladen werden (${err.message}).`;
+	console.error(err);
+}
+
+function play(name, fade = 0.45) {
+	const next = actions[name];
+	if (!next) return;
+	if (current === next) return;
+	next.reset().setEffectiveWeight(1).play();
+	if (current && fade > 0) current.crossFadeTo(next, fade, true);
+	else if (current) current.stop();
+	current = next;
+	document.querySelectorAll('.clip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.clip === name)));
+}
+
+function focusPoint(out) {
+	if (!chest) return out.set(0, 3.5, 0);
+	if (views[viewIndex].rider) return out.copy(model.getObjectByName('Link_Head').getWorldPosition(out)).add(new THREE.Vector3(0, -0.3, 0));
+	chest.getWorldPosition(out);
+	out.y += 0.6;
+	out.z -= 1.2;
+	return out;
+}
+
+function setView(i, instant = false) {
+	viewIndex = ((i % views.length) + views.length) % views.length;
+	const v = views[viewIndex];
+	model?.updateMatrixWorld(true);
+	const target = focusPoint(new THREE.Vector3());
+	const dist = v.dist * (innerWidth < 600 ? 1.25 : 1);
+	const dir = params.get('cam') ? params.get('cam').split(',').map(Number) : v.dir;
+	const pos = new THREE.Vector3(...dir).normalize().multiplyScalar(params.get('dist') ? Number(params.get('dist')) : dist).add(target);
+	if (instant) {
+		controls.target.copy(target);
+		camera.position.copy(pos);
+	} else {
+		tween = { from: camera.position.clone(), to: pos, t: 0 };
+	}
+	document.getElementById('view').textContent = `Ansicht: ${v.name}`;
+}
+
+// --- UI wiring --------------------------------------------------------------
+const playBtn = document.getElementById('play');
+playBtn.addEventListener('click', () => {
+	paused = !paused;
+	playBtn.textContent = paused ? 'Abspielen' : 'Pause';
+	playBtn.setAttribute('aria-label', paused ? 'Abspielen' : 'Pause');
+});
+const speedIn = document.getElementById('speed');
+speedIn.addEventListener('input', () => {
+	speed = Number(speedIn.value);
+	document.getElementById('speed-out').textContent = `${fmt(speed)}×`;
+});
+const rotateBtn = document.getElementById('rotate');
+rotateBtn.addEventListener('click', () => {
+	controls.autoRotate = !controls.autoRotate;
+	rotateBtn.setAttribute('aria-pressed', String(controls.autoRotate));
+});
+document.getElementById('view').addEventListener('click', () => setView(viewIndex + 1));
+addEventListener('keydown', (e) => {
+	if (e.target.closest('input')) return;
+	const names = Object.keys(actions);
+	if (['1', '2', '3'].includes(e.key) && names[Number(e.key) - 1]) play(names[Number(e.key) - 1]);
+	if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+	if (e.key.toLowerCase() === 'v') setView(viewIndex + 1);
+});
+
+// --- frame loop -------------------------------------------------------------
+const tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3(), follow = new THREE.Vector3();
+const timeEl = document.getElementById('time'), progEl = document.getElementById('progress');
+function frame() {
+	const dt = Math.min(clock.getDelta(), 0.05);
+	if (mixer && !paused) mixer.update(dt * speed);
+	if (model) {
+		focusPoint(follow);
+		const delta = follow.clone().sub(controls.target).multiplyScalar(capture ? 1 : 0.06);
+		controls.target.add(delta);
+		if (!tween) camera.position.add(delta);
+	}
+	if (tween) {
+		tween.t = Math.min(1, tween.t + dt / 0.9);
+		const k = 1 - Math.pow(1 - tween.t, 3);
+		camera.position.lerpVectors(tween.from, tween.to, k);
+		if (tween.t >= 1) tween = null;
+	}
+	if (fireNode) {
+		fireNode.getWorldScale(tmpS);
+		const amt = THREE.MathUtils.clamp((tmpS.x - 0.05) / 0.95, 0, 1);
+		fireNode.getWorldPosition(tmpV);
+		const fwd = new THREE.Vector3(0, 0, 2.5).applyQuaternion(fireNode.getWorldQuaternion(new THREE.Quaternion()));
+		fireLight.position.copy(tmpV).add(fwd);
+		fireLight.intensity = amt * (45 + 15 * Math.sin(performance.now() * 0.03));
+	}
+	if (current) {
+		const d = current.getClip().duration;
+		const t = current.time % d;
+		progEl.style.width = `${(t / d) * 100}%`;
+		timeEl.textContent = `${fmt(t)} / ${fmt(d)} s`;
+	}
+	if (!reduceMotion) {
+		const p = embers.geometry.attributes.position;
+		for (let i = 0; i < p.count; i++) {
+			let y = p.getY(i) + dt * embers.userData.speed[i];
+			if (y > 18) y = 0.2;
+			p.setY(i, y);
+		}
+		p.needsUpdate = true;
+	}
+	controls.update();
+	composer.render();
+	requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__dragonReady = true;
+
+// --- procedural backdrop ----------------------------------------------------
+function skyTexture() {
+	const c = document.createElement('canvas');
+	c.width = 16; c.height = 512;
+	const g = c.getContext('2d');
+	const grad = g.createLinearGradient(0, 0, 0, 512);
+	grad.addColorStop(0, '#060609');
+	grad.addColorStop(0.36, '#120c10');
+	grad.addColorStop(0.47, '#2e160f');
+	grad.addColorStop(0.5, '#1a110f');
+	grad.addColorStop(1, '#1a110f');
+	g.fillStyle = grad;
+	g.fillRect(0, 0, 16, 512);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	return t;
+}
+
+function groundTexture() {
+	const c = document.createElement('canvas');
+	c.width = c.height = 1024;
+	const g = c.getContext('2d');
+	const grad = g.createRadialGradient(512, 512, 40, 512, 512, 512);
+	grad.addColorStop(0, '#2c211d');
+	grad.addColorStop(0.3, '#1f1714');
+	grad.addColorStop(1, '#1a110f');
+	g.fillStyle = grad;
+	g.fillRect(0, 0, 1024, 1024);
+	// scorched cracks
+	let seed = 11;
+	const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+	g.strokeStyle = 'rgba(8, 5, 5, 0.22)';
+	for (let k = 0; k < 40; k++) {
+		g.lineWidth = 0.6 + rnd() * 1.8;
+		g.beginPath();
+		let x = 512 + (rnd() - 0.5) * 900, y = 512 + (rnd() - 0.5) * 900;
+		g.moveTo(x, y);
+		for (let s = 0; s < 7; s++) { x += (rnd() - 0.5) * 70; y += (rnd() - 0.5) * 70; g.lineTo(x, y); }
+		g.stroke();
+	}
+	g.strokeStyle = 'rgba(255, 140, 70, 0.07)';
+	g.lineWidth = 2;
+	for (const r of [70, 140, 210]) { g.beginPath(); g.arc(512, 512, r, 0, Math.PI * 2); g.stroke(); }
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 4;
+	return t;
+}
+
+function makeEmbers() {
+	const n = 260;
+	const pos = new Float32Array(n * 3);
+	const speedArr = new Float32Array(n);
+	for (let i = 0; i < n; i++) {
+		const r = 6 + Math.random() * 30, a = Math.random() * Math.PI * 2;
+		pos[i * 3] = Math.cos(a) * r;
+		pos[i * 3 + 1] = Math.random() * 18;
+		pos[i * 3 + 2] = Math.sin(a) * r;
+		speedArr[i] = 0.3 + Math.random() * 0.9;
+	}
+	const geo = new THREE.BufferGeometry();
+	geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+	const dot = document.createElement('canvas');
+	dot.width = dot.height = 32;
+	const dg = dot.getContext('2d');
+	const rg = dg.createRadialGradient(16, 16, 0, 16, 16, 16);
+	rg.addColorStop(0, 'rgba(255,255,255,1)');
+	rg.addColorStop(0.4, 'rgba(255,255,255,0.5)');
+	rg.addColorStop(1, 'rgba(255,255,255,0)');
+	dg.fillStyle = rg;
+	dg.fillRect(0, 0, 32, 32);
+	const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+		color: 0xff8a3a, size: 0.12, map: new THREE.CanvasTexture(dot), transparent: true, opacity: 0.85,
+		blending: THREE.AdditiveBlending, depthWrite: false,
+	}));
+	pts.userData.speed = speedArr;
+	return pts;
+}
+</script>
+</body>
+</html>
