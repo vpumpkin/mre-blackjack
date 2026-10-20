@@ -995,11 +995,22 @@ function dragonDepthMaterial() {
   return m;
 }
 
+// The model ships either as dragon.glb or, where only web data types are served, as dragon.json
+// holding the same GLB bytes in base64. Try the JSON package first and fall back to the GLB.
+async function fetchModel(loader, onProgress) {
+  let pkg = null;
+  try { pkg = await new THREE.FileLoader().setResponseType('json').loadAsync(MODEL.url.replace(/\.glb$/, '.json'), onProgress); }
+  catch (e) { return loader.loadAsync(MODEL.url, onProgress); }
+  const bin = atob(pkg.glb), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return loader.parseAsync(bytes.buffer, '');
+}
+
 async function loadDragon(onProgress) {
   const loader = new GLTFLoader();
   // decode textures through <img> + blob URLs instead of fetch(): works inside sandboxed frames too
   loader.register((parser) => { parser.textureLoader = new THREE.TextureLoader(parser.options.manager); return { name: 'img-textures' }; });
-  const gltf = await loader.loadAsync(MODEL.url, onProgress);
+  const gltf = await fetchModel(loader, onProgress);
   const src = gltf.scene;
   src.rotation.set(MODEL.pitch, MODEL.yaw, 0);
   if (MODEL.flip) src.scale.z = -1;
