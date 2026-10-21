@@ -143,7 +143,7 @@ class Rig {
 		this.bones = [];
 		this.byName = {};
 		this.rest = {};
-		this.parts = { body: [], limbs: [], head: [], eyes: [], gear: [], glow: [] };
+		this.parts = { body: [], limbs: [], head: [], face: [], eyes: [], gear: [], glow: [] };
 		this.meta = {};
 	}
 
@@ -175,7 +175,7 @@ class Rig {
 const SIDES = [[1, '_L'], [-1, '_R']];
 const M = (p, sx) => [p[0] * sx, p[1], p[2]];
 
-const EYE = { y: 0.81, x: 0.113, R: 0.088, embed: 0.046 };
+const EYE = { y: 0.855, x: 0.125, R: 0.096, embed: 0.04 };
 const ARM = { S: [0.34, 0.53, 0.32], E: [0.483, 0.392, 0.435], W: [0.602, 0.23, 0.511] };
 const FINGERS = [
 	{ name: 'Index', off: 0.036, len: [0.046, 0.04], r: 0.021 },
@@ -220,14 +220,14 @@ function buildSkeleton(R) {
 		R.bone(`Pupil${s}`, `Eye${s}`, e);
 		R.bone(`LidUpper${s}`, 'Head', e);
 		R.bone(`LidLower${s}`, 'Head', e);
-		R.bone(`BrowIn${s}`, 'Head', face(0.035 * sx, 0.918, 0.03));
-		R.bone(`BrowOut${s}`, 'Head', face(0.185 * sx, 0.928, 0.03));
+		R.bone(`BrowIn${s}`, 'Head', face(0.06 * sx, 0.962, 0.03));
+		R.bone(`BrowOut${s}`, 'Head', face(0.2 * sx, 0.958, 0.03));
 		R.bone(`Cheek${s}`, 'Head', face(0.215 * sx, 0.68, 0));
-		R.bone(`Mustache${s}`, 'Head', face(0.03 * sx, 0.656, 0.02));
+		R.bone(`Mustache${s}`, 'Head', face(0.04 * sx, 0.67, 0.02));
 		R.bone(`MouthCorner${s}`, 'Head', face(0.075 * sx, 0.587, 0.003));
 		R.bone(`Ear${s}`, 'Head', [0.47 * sx, 0.79, -0.04]);
 	}
-	R.bone('Nose', 'Head', face(0, 0.708, 0.042));
+	R.bone('Nose', 'Head', face(0, 0.758, 0.045));
 	R.bone('MouthUpper', 'Head', face(0, 0.575, 0.003));
 	R.bone('MouthLower', 'Head', face(0, 0.569, 0.003));
 	for (const [sx, s] of SIDES) {
@@ -264,7 +264,7 @@ const eyeAxis = (sx) => V(0.12 * sx, 0.04, 1).normalize();
 // Iris and pupil are spheres intersecting the eyeball; the visible disc size
 // depends on how far they poke out, so the pupil "dilates" by translating
 // along the eye axis (Roblox animations cannot scale bones).
-const IRIS = { a: 0.048, c: 0.036 };
+const IRIS = { a: 0.052, c: 0.04 };
 const irisR = Math.sqrt((Math.sqrt(EYE.R ** 2 - IRIS.a ** 2) - IRIS.c) ** 2 + IRIS.a ** 2);
 const PUPIL_R = 0.034;
 export function pupilOffset(visibleRadius) {
@@ -540,7 +540,7 @@ function buildHead(R) {
 		buildMustache(R, sx, s);
 	}
 	// nose
-	R.rigid('head', 'Nose', ellipsoid(R.rest.Nose, [0.092, 0.082, 0.082], 'skin', { w: 22, h: 16 }));
+	R.rigid('head', 'Nose', ellipsoid(R.rest.Nose, [0.108, 0.096, 0.1], 'skin', { w: 22, h: 16 }));
 	buildMouth(R);
 }
 
@@ -592,24 +592,24 @@ function buildEye(R, sx, s) {
 }
 
 function buildBrow(R, sx, s) {
-	const pts = [[0.035, 0.918], [0.075, 0.942], [0.115, 0.952], [0.155, 0.945], [0.185, 0.928]].map(([x, y]) => face(x * sx, y, 0.03));
+	const pts = [[0.05, 0.955], [0.085, 0.972], [0.12, 0.98], [0.155, 0.978], [0.19, 0.962], [0.225, 0.935]].map(([x, y]) => face(x * sx, y, 0.03));
 	const n = eggNormal(pts[2]);
 	const g = loft(pts, {
-		radii: (u) => { const k = 1 - Math.abs(u - 0.4) * 1.2; return [0.014 + 0.013 * k, 0.009 + 0.006 * k]; },
+		radii: (u) => { const k = 1 - Math.abs(u - 0.45) * 1.2; return [0.011 + 0.008 * k, 0.008 + 0.005 * k]; },
 		up: n, perSeg: 4, radial: 10, swatch: 'brow',
 	});
 	const bIn = R.bi(`BrowIn${s}`), bOut = R.bi(`BrowOut${s}`);
-	R.skinned('head', skinBy(g, (p) => {
-		const u = clamp01((Math.abs(p.x) - 0.035) / 0.15);
+	R.skinned('face', skinBy(g, (p) => {
+		const u = clamp01((Math.abs(p.x) - 0.05) / 0.175);
 		return [[bIn, 1 - smooth(u)], [bOut, smooth(u)]];
 	}));
 }
 
 function buildMustache(R, sx, s) {
-	const pts = [[-0.012, 0.661], [0.075, 0.655], [0.14, 0.644], [0.198, 0.624], [0.226, 0.594]].map(([x, y]) => face(x * sx, y, 0.022));
+	const pts = [[-0.012, 0.66], [0.07, 0.672], [0.14, 0.69], [0.2, 0.712], [0.25, 0.736], [0.283, 0.744]].map(([x, y]) => face(x * sx, y, 0.022));
 	const n = eggNormal(pts[2]);
 	R.rigid('head', `Mustache${s}`, loft(pts, {
-		radii: (u) => [0.05 - 0.028 * u * u, 0.024 - 0.008 * u],
+		radii: (u) => [0.058 - 0.032 * u * u, 0.026 - 0.01 * u],
 		up: n, perSeg: 8, radial: 16, swatch: 'mustache',
 		noise: (u, th) => 1 + 0.2 * Math.pow(Math.max(0, Math.cos(th)), 2) * Math.sin(u * Math.PI * 3.2 + 0.4),
 	}));
@@ -636,16 +636,16 @@ function buildMouth(R) {
 		const mix = [[U, (1 - t) * topW[0] + t * botW[0]], [Lo, (1 - t) * topW[1] + t * botW[1]]];
 		return [...mix.map(([b, w]) => [b, w * (1 - c)]), [p.x > 0 ? CL : CR, c]];
 	};
-	R.skinned('head', skinBy(strip(MOUTH.w, mouthTop, mouthBot, 0.005, 'mouth'), weights([1, 0], [0, 1])));
-	R.skinned('head', skinBy(strip(0.05, mouthTop, mouthTop, 0.0062, 'teeth'), (p) => [[U, 0.62], [Lo, 0.38]].map(([b, w]) => [b, w])));
-	R.skinned('head', skinBy(strip(0.042, mouthBot, mouthBot, 0.0058, 'tongue'), (p) => [[U, 0.2], [Lo, 0.8]]));
+	R.skinned('face', skinBy(strip(MOUTH.w, mouthTop, mouthBot, 0.005, 'mouth'), weights([1, 0], [0, 1])));
+	R.skinned('face', skinBy(strip(0.05, mouthTop, mouthTop, 0.0062, 'teeth'), (p) => [[U, 0.62], [Lo, 0.38]].map(([b, w]) => [b, w])));
+	R.skinned('face', skinBy(strip(0.042, mouthBot, mouthBot, 0.0058, 'tongue'), (p) => [[U, 0.2], [Lo, 0.8]]));
 	// lower lip / chin crease
 	const lip = [];
 	for (let i = 0; i <= 8; i++) {
 		const x = lerp(-0.05, 0.05, i / 8);
 		lip.push(face(x, mouthBot(x) - 0.03 - 0.006 * (1 - (x / 0.05) ** 2), 0.002));
 	}
-	R.skinned('head', skinBy(loft(lip, { radii: [[0.0035, 0.002]], radial: 5, perSeg: 2, swatch: 'skinShade' }), () => [[Lo, 1]]));
+	R.skinned('face', skinBy(loft(lip, { radii: [[0.0035, 0.002]], radial: 5, perSeg: 2, swatch: 'skinShade' }), () => [[Lo, 1]]));
 }
 
 // ---------------------------------------------------------------------------
@@ -778,7 +778,7 @@ export function buildCharacter() {
 	const skeleton = new THREE.Skeleton(R.bones);
 	const mats = makeMaterials();
 	const meshes = {};
-	const names = { body: 'PlumberBody', limbs: 'PlumberLimbs', head: 'PlumberHead', eyes: 'PlumberEyes', gear: 'PlumberGear', glow: 'PlumberGlow' };
+	const names = { body: 'PlumberBody', limbs: 'PlumberLimbs', head: 'PlumberHead', face: 'PlumberFace', eyes: 'PlumberEyes', gear: 'PlumberGear', glow: 'PlumberGlow' };
 	for (const [key, geos] of Object.entries(R.parts)) {
 		const geo = mergeGeometries(geos.map((g) => finish(g)));
 		const tris = geo.index.count / 3;

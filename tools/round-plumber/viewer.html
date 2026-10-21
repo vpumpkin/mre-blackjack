@@ -342,7 +342,7 @@ async function loadBytes() {
 		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
 		return bytes.buffer;
 	}
-	const res = await fetch(params.get('src') || '../../public/round-plumber.glb');
+	const res = await fetch(params.get('src') || '../../public/round-plumber-meshy.glb');
 	if (!res.ok) throw new Error(`HTTP ${res.status}`);
 	return res.arrayBuffer();
 }

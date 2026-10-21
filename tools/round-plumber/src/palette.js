@@ -9,16 +9,16 @@ export const SIZE = 512;
 
 // name: [hex colour, roughness, metalness]
 const SWATCHES = {
-	skin: ['#f4c09c', 0.55, 0], skinShade: ['#e2a17c', 0.6, 0], ear: ['#eeb38f', 0.6, 0],
+	skin: ['#febd9a', 0.55, 0], skinShade: ['#e89d78', 0.6, 0], ear: ['#f8b38f', 0.6, 0],
 	lips: ['#b5544c', 0.5, 0], mouth: ['#5a1a1e', 0.7, 0], tongue: ['#d0626a', 0.45, 0], teeth: ['#fbf7ef', 0.3, 0],
-	cap: ['#2fa43c', 0.82, 0], capDark: ['#1f7d2c', 0.85, 0], shirt: ['#33a842', 0.86, 0], shirtDark: ['#24852f', 0.88, 0],
+	cap: ['#38a135', 0.82, 0], capDark: ['#287a26', 0.85, 0], shirt: ['#339c36', 0.86, 0], shirtDark: ['#267a29', 0.88, 0],
 	emblem: ['#f5f1e6', 0.6, 0], emblemSymbol: ['#2fa43c', 0.7, 0],
-	overalls: ['#1f3c9a', 0.9, 0], overallsDark: ['#172d76', 0.92, 0], stitch: ['#6f8fe0', 0.8, 0],
+	overalls: ['#0e3063', 0.9, 0], overallsDark: ['#0a2550', 0.92, 0], stitch: ['#6f8fe0', 0.8, 0],
 	button: ['#f2c623', 0.35, 0.35], star: ['#f0c419', 0.55, 0.1],
-	glove: ['#fbfbf8', 0.65, 0], gloveLine: ['#c9c9c4', 0.7, 0],
+	glove: ['#f9f8fa', 0.65, 0], gloveLine: ['#c9c9c4', 0.7, 0],
 	shoe: ['#6a3b1e', 0.55, 0], sole: ['#3b2010', 0.7, 0],
-	hair: ['#7a3b1c', 0.75, 0], mustache: ['#3b1f12', 0.6, 0], brow: ['#2e1a10', 0.65, 0],
-	sclera: ['#fdfdfb', 0.2, 0], iris: ['#2f7fd6', 0.25, 0], irisRing: ['#173f8a', 0.3, 0], pupil: ['#0a0c14', 0.15, 0],
+	hair: ['#8b340b', 0.75, 0], mustache: ['#300b09', 0.6, 0], brow: ['#2e0b09', 0.65, 0],
+	sclera: ['#fafaf7', 0.2, 0], iris: ['#1783c8', 0.25, 0], irisRing: ['#0c4a86', 0.3, 0], pupil: ['#0a0c14', 0.15, 0],
 	highlight: ['#ffffff', 0.1, 0],
 	tank: ['#2d6f73', 0.45, 0.55], tankDark: ['#1e4c50', 0.5, 0.5], copper: ['#c27a3a', 0.35, 0.9],
 	steel: ['#b8c0c6', 0.3, 0.95], rubber: ['#24262a', 0.8, 0], hose: ['#3a4048', 0.6, 0.1], hoseRib: ['#2a2f36', 0.65, 0.1],

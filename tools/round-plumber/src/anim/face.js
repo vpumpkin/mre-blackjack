@@ -11,7 +11,7 @@
 export const CHANNELS = ['lidUp', 'lidLow', 'browIn', 'browOut', 'browSq', 'pupil', 'open', 'smile', 'wide', 'cheek', 'nose', 'stache', 'shift'];
 const SIDED = new Set(['lidUp', 'lidLow', 'browIn', 'browOut', 'browSq', 'smile', 'cheek']);
 
-const base = { lidUp: -0.08, lidLow: 0.02, browIn: 0, browOut: 0, browSq: 0, pupil: 1, open: 0, smile: 0.35, wide: 0, cheek: 0.15, nose: 0, stache: 0, shift: 0 };
+const base = { lidUp: -0.2, lidLow: -0.08, browIn: 0, browOut: 0, browSq: 0, pupil: 1, open: 0, smile: 0.35, wide: 0, cheek: 0.15, nose: 0, stache: 0, shift: 0 };
 const P = (o) => ({ ...base, ...o });
 
 export const EXPRESSIONS = {
