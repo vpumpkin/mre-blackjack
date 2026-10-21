@@ -62,6 +62,8 @@
 	.tick { position: absolute; top: 0; width: 2px; height: 10px; background: var(--warn); border-radius: 1px; transform: translateX(-1px); }
 	.tick span { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-family: var(--font-data); font-size: 9px; color: var(--warn); white-space: nowrap; opacity: 0.9; }
 	.tick span.low { top: 13px; }
+	.markers .id, .now .meta .id { opacity: 0.6; }
+	.markers .id { margin-left: 6px; font-family: var(--font-data); font-size: 10px; }
 	.tick:first-child span { transform: none; left: 0; }
 	.tick:last-child span { transform: translateX(-100%); left: 0; }
 	.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -184,14 +186,14 @@
 		<div class="now"><h2 id="clipTitle">–</h2><span class="meta" id="clipMeta"></span></div>
 		<div class="timeline">
 			<input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Zeitleiste">
-			<div class="ticks" id="ticks"></div>
+			<div class="ticks" id="ticks" aria-hidden="true"></div>
 		</div>
 		<div class="transport">
 			<button class="btn" id="play" type="button">Pause</button>
 			<span class="time" id="time">0,00 / 0,00 s</span>
 			<label class="speed" for="speed">Tempo <input id="speed" type="range" min="0.1" max="1.5" step="0.05" value="1"><output id="speedOut" class="time">1,00×</output></label>
 			<button class="btn" id="fx" type="button" aria-pressed="true">Effekte</button>
-			<button class="btn" id="hitstop" type="button" aria-pressed="true">Hit-Stop</button>
+			<button class="btn" id="hitstop" type="button" aria-pressed="true" title="Kurzes Standbild bei Treffern und Aufschlägen">Trefferstopp</button>
 			<button class="btn" id="cam" type="button">Kamera: Totale</button>
 		</div>
 	</div>
@@ -199,15 +201,15 @@
 <aside>
 	<header>
 		<h1>Runder Klempner</h1>
-		<p>Alle Animationen des Charakters. Antippen spielt sie ab, „Variante“ wählt zufällig eine andere Variante derselben Gruppe (nie zweimal dieselbe hintereinander). Gelbe Striche auf der Zeitleiste sind die Gameplay-Marker.</p>
+		<p>Alle Animationen des Charakters. Antippen spielt sie ab, „Variante“ wählt zufällig eine andere Variante derselben Gruppe (nie zweimal dieselbe hintereinander). Gelbe Striche auf der Zeitleiste sind Marker für Spielereignisse.</p>
 	</header>
 	<div id="groups"></div>
 	<section class="group">
-		<h3>Mimik-Overlay <span class="time">nur Gesicht</span></h3>
+		<h3>Mimik <span class="time">nur Gesicht, über die Animation gelegt</span></h3>
 		<div class="faces" id="faces"></div>
 	</section>
 	<section class="group">
-		<h3>Marker im Clip</h3>
+		<h3>Marker dieser Animation</h3>
 		<div class="markers" id="markerList">–</div>
 	</section>
 </aside>
@@ -235,13 +237,21 @@ const $ = (id) => document.getElementById(id);
 const fmt = (n, d = 2) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 const GROUPS = [
-	['Idle', ['Idle_Fear', 'Idle_LookAround', 'Idle_Courage', 'Combat_Idle', 'Run']],
+	['Stehen & Laufen', ['Idle_Fear', 'Idle_LookAround', 'Idle_Courage', 'Combat_Idle', 'Run']],
 	['Staubsauger', ['Vacuum_Start', 'Vacuum_Suck', 'Vacuum_Stop']],
 	['Angriffe', ['Attack_Uppercut', 'Flash']],
-	['Ultimate', ['SlamCombo']],
+	['Spezialangriff', ['SlamCombo']],
 	['Ausweichen', ['Dodge_Left', 'Dodge_Right', 'Dodge_Back']],
 ];
 const FACE_DE = { Neutral: 'neutral', Afraid: 'ängstlich', Startled: 'erschrocken', Panic: 'panisch', Focused: 'konzentriert', Angry: 'wütend', Relieved: 'erleichtert', Proud: 'stolz', Confused: 'verwirrt' };
+// German names for the gameplay markers; the ids stay as they are in the data (game code relies on them)
+const MARKER_DE = {
+	VacuumStart: 'Sauger an', SuctionActive: 'Sog an', VacuumStop: 'Sauger aus',
+	HitboxStart: 'Trefferzone an', Impact: 'Treffer', HitboxEnd: 'Trefferzone aus', Flash: 'Blitz',
+	Grab: 'Packen', Slam01: 'Aufschlag 1', Slam02: 'Aufschlag 2', Release: 'Loslassen', Recovery: 'Wieder bereit',
+	IFrameStart: 'Unverwundbar an', IFrameEnd: 'Unverwundbar aus', Land: 'Landung',
+};
+const markerDe = (id) => MARKER_DE[id] ?? id;
 const FACE_BONES = new Set(['Eye_L', 'Eye_R', 'Pupil_L', 'Pupil_R', 'LidUpper_L', 'LidUpper_R', 'LidLower_L', 'LidLower_R', 'BrowIn_L', 'BrowIn_R', 'BrowOut_L', 'BrowOut_R', 'Cheek_L', 'Cheek_R', 'Nose', 'Mustache_L', 'Mustache_R', 'MouthUpper', 'MouthLower', 'MouthCorner_L', 'MouthCorner_R']);
 const HIT_STOP = { Impact: 0.07, Slam01: 0.09, Slam02: 0.13, Flash: 0.04 };
 
@@ -343,7 +353,7 @@ async function loadBytes() {
 		return bytes.buffer;
 	}
 	const res = await fetch(params.get('src') || '../../public/round-plumber-meshy.glb');
-	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	if (!res.ok) throw new Error(`Server antwortet mit HTTP-Status ${res.status}`);
 	return res.arrayBuffer();
 }
 
@@ -384,7 +394,8 @@ try {
 	if (params.get('face')) setFace(params.get('face'));
 	if (params.has('t')) { paused = true; $('play').textContent = 'Abspielen'; seek(Number(params.get('t'))); }
 } catch (err) {
-	$('notice').textContent = `Das Modell konnte nicht geladen werden (${err.message}).`;
+	$('notice').textContent = 'Das Modell konnte nicht geladen werden. Details stehen in der Browser-Konsole.';
+	$('notice').hidden = false;
 	console.error(err);
 }
 
@@ -394,8 +405,11 @@ function buildIndex() {
 	for (const [title, groups] of GROUPS) {
 		const sec = document.createElement('section');
 		sec.className = 'group';
-		sec.innerHTML = `<h3>${title}</h3><div class="list"></div>`;
-		const list = sec.querySelector('.list');
+		const h = document.createElement('h3');
+		h.textContent = title;
+		const list = document.createElement('div');
+		list.className = 'list';
+		sec.append(h, list);
 		for (const g of groups) {
 			const names = Object.values(info).filter((c) => c.group === g).map((c) => c.name);
 			if (names.length > 1) {
@@ -405,7 +419,7 @@ function buildIndex() {
 				chip.type = 'button';
 				chip.className = 'chip';
 				chip.textContent = `Variante (${names.length})`;
-				chip.setAttribute('aria-label', `Zufällige Variante: ${info[names[0]].label.replace(/ [A-C]( \(.*\))?$/, '')}`);
+				chip.setAttribute('aria-label', `Zufällige Variante: ${info[names[0]].label.replace(/ [A-C](?: [–(].*)?$/, '')}`);
 				chip.addEventListener('click', () => select(pickVariant(g, names)));
 				row.append(chip);
 				list.append(row);
@@ -416,7 +430,7 @@ function buildIndex() {
 				b.type = 'button';
 				b.className = 'clip';
 				b.dataset.clip = n;
-				b.innerHTML = `<span class="name">${c.label}</span><span class="dur">${fmt(c.duration, 1)} s${c.loop ? ' ↻' : ''}</span>`;
+				b.innerHTML = `<span class="name">${c.label}</span><span class="dur">${fmt(c.duration, 1)} s${c.loop ? ' <span role="img" aria-label="Schleife" title="Schleife">↻</span>' : ''}</span>`;
 				b.addEventListener('click', () => select(n));
 				list.append(b);
 			}
@@ -473,17 +487,17 @@ function select(name, instant = false) {
 	ghost.visible = false;
 	document.querySelectorAll('.clip').forEach((b) => b.setAttribute('aria-current', String(b.dataset.clip === name)));
 	$('clipTitle').textContent = c.label;
-	$('clipMeta').textContent = `${c.name} · ${fmt(c.duration, 2)} s · ${Math.round(c.duration * 30)} Frames${c.loop ? ' · Loop' : ''}`;
+	$('clipMeta').innerHTML = `<span class="id" lang="en" title="Clip-ID im Spielcode">${c.name}</span> · ${fmt(c.duration, 2)} s · ${Math.round(c.duration * 30)} Bilder${c.loop ? ' · Schleife' : ''}`;
 	// markers at (almost) the same time share one label; labels alternate rows
 	const merged = [];
 	for (const m of c.markers) {
 		const last = merged[merged.length - 1];
-		if (last && m.time - last.time < c.duration * 0.06) last.name += ` · ${m.name}`; else merged.push({ ...m });
+		if (last && m.time - last.time < c.duration * 0.06) last.label += ` · ${markerDe(m.name)}`; else merged.push({ time: m.time, label: markerDe(m.name) });
 	}
-	$('ticks').innerHTML = merged.map((m, i) => `<i class="tick" style="left:${(m.time / c.duration) * 100}%"><span class="${i % 2 ? 'low' : ''}">${m.name}</span></i>`).join('');
+	$('ticks').innerHTML = merged.map((m, i) => `<i class="tick" style="left:${(m.time / c.duration) * 100}%"><span class="${i % 2 ? 'low' : ''}">${m.label}</span></i>`).join('');
 	$('markerList').innerHTML = c.markers.length
-		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${m.name}</div>`).join('')
-		: 'Keine Marker (Loop ohne Gameplay-Ereignisse)';
+		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${markerDe(m.name)}<span class="id" lang="en" title="Marker-ID im Spielcode">${m.name}</span></div>`).join('')
+		: 'Keine Marker (Schleife ohne Spielereignisse)';
 	if (paused) mixer.update(0);
 }
 
@@ -560,7 +574,6 @@ function focus(out) {
 
 // --- markers & effects ------------------------------------------------------------
 function onMarker(name) {
-	toast(name);
 	if (fx.hitStop && HIT_STOP[name]) freezeUntil = performance.now() + HIT_STOP[name] * 1000;
 	const p = new THREE.Vector3();
 	if (name === 'Flash') flashT = 0;
@@ -670,10 +683,12 @@ function frame() {
 		const t = a.time;
 		// marker crossing (handles the loop wrap)
 		if (!paused && !scrubbing) {
+			const hits = [];
 			for (const mk of c.markers) {
 				const crossed = t >= lastTime ? mk.time > lastTime && mk.time <= t : mk.time > lastTime || mk.time <= t;
-				if (crossed) onMarker(mk.name);
+				if (crossed) { onMarker(mk.name); hits.push(markerDe(mk.name)); }
 			}
+			if (hits.length) toast(hits.join(' · ')); // markers in the same frame share one toast
 		}
 		lastTime = t;
 		const rm = rootMotion(c, t);

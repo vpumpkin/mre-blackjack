@@ -13,7 +13,7 @@ Clips.Clips = {
 		duration = 6,
 		looped = true,
 		priority = "Idle",
-		label = "Idle 1 – ängstliches Zittern",
+		label = "Stehen 1 – ängstliches Zittern",
 		markers = {  },
 	},
 	Idle_LookAround = {
@@ -21,7 +21,7 @@ Clips.Clips = {
 		duration = 6,
 		looped = true,
 		priority = "Idle",
-		label = "Idle 2 – nervöses Umschauen",
+		label = "Stehen 2 – nervöses Umschauen",
 		markers = {  },
 	},
 	Idle_Courage = {
@@ -29,7 +29,7 @@ Clips.Clips = {
 		duration = 6,
 		looped = true,
 		priority = "Idle",
-		label = "Idle 3 – Mut sammeln",
+		label = "Stehen 3 – Mut sammeln",
 		markers = {  },
 	},
 	Combat_Idle = {
@@ -37,7 +37,7 @@ Clips.Clips = {
 		duration = 2,
 		looped = true,
 		priority = "Idle",
-		label = "Combat Idle",
+		label = "Kampfhaltung",
 		markers = {  },
 	},
 	Run = {
@@ -72,7 +72,7 @@ Clips.Clips = {
 		duration = 1.6,
 		looped = false,
 		priority = "Action",
-		label = "Staubsauger ziehen B (Quick-Draw)",
+		label = "Staubsauger ziehen B (blitzschnell)",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -248,7 +248,7 @@ Clips.Clips = {
 		duration = 4.8,
 		looped = false,
 		priority = "Action3",
-		label = "Ultimate A – Einsaugen + 2× Slam",
+		label = "Spezialangriff A – Einsaugen + 2× Aufschlag",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -286,7 +286,7 @@ Clips.Clips = {
 		duration = 4.8,
 		looped = false,
 		priority = "Action3",
-		label = "Ultimate B – Hammerwurf-Slam",
+		label = "Spezialangriff B – Hammerwurf",
 		markers = {
 			{
 				name = "VacuumStart",

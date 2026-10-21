@@ -7,7 +7,7 @@
     "loop": true,
     "priority": "Idle",
     "faceOnly": false,
-    "label": "Idle 1 – ängstliches Zittern",
+    "label": "Stehen 1 – ängstliches Zittern",
     "markers": [],
     "rootMotion": null
   },
@@ -19,7 +19,7 @@
     "loop": true,
     "priority": "Idle",
     "faceOnly": false,
-    "label": "Idle 2 – nervöses Umschauen",
+    "label": "Stehen 2 – nervöses Umschauen",
     "markers": [],
     "rootMotion": null
   },
@@ -31,7 +31,7 @@
     "loop": true,
     "priority": "Idle",
     "faceOnly": false,
-    "label": "Idle 3 – Mut sammeln",
+    "label": "Stehen 3 – Mut sammeln",
     "markers": [],
     "rootMotion": null
   },
@@ -43,7 +43,7 @@
     "loop": true,
     "priority": "Idle",
     "faceOnly": false,
-    "label": "Combat Idle",
+    "label": "Kampfhaltung",
     "markers": [],
     "rootMotion": null
   },
@@ -88,7 +88,7 @@
     "loop": false,
     "priority": "Action",
     "faceOnly": false,
-    "label": "Staubsauger ziehen B (Quick-Draw)",
+    "label": "Staubsauger ziehen B (blitzschnell)",
     "markers": [
       {
         "name": "VacuumStart",
@@ -293,7 +293,7 @@
     "loop": false,
     "priority": "Action3",
     "faceOnly": false,
-    "label": "Ultimate A – Einsaugen + 2× Slam",
+    "label": "Spezialangriff A – Einsaugen + 2× Aufschlag",
     "markers": [
       {
         "name": "VacuumStart",
@@ -334,7 +334,7 @@
     "loop": false,
     "priority": "Action3",
     "faceOnly": false,
-    "label": "Ultimate B – Hammerwurf-Slam",
+    "label": "Spezialangriff B – Hammerwurf",
     "markers": [
       {
         "name": "VacuumStart",
