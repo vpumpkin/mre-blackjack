@@ -67,7 +67,7 @@
     "loop": false,
     "priority": "Action",
     "faceOnly": false,
-    "label": "Staubsauger ziehen A",
+    "label": "Staubsauger zücken A",
     "markers": [
       {
         "name": "VacuumStart",
@@ -88,7 +88,7 @@
     "loop": false,
     "priority": "Action",
     "faceOnly": false,
-    "label": "Staubsauger ziehen B (blitzschnell)",
+    "label": "Staubsauger zücken B (blitzschnell)",
     "markers": [
       {
         "name": "VacuumStart",
@@ -109,7 +109,7 @@
     "loop": false,
     "priority": "Action",
     "faceOnly": false,
-    "label": "Staubsauger ziehen C (Fummeln)",
+    "label": "Staubsauger zücken C (ungeschickt)",
     "markers": [
       {
         "name": "VacuumStart",
@@ -185,7 +185,7 @@
     "loop": false,
     "priority": "Action2",
     "faceOnly": false,
-    "label": "Aufwärtshieb",
+    "label": "Aufwärtshaken",
     "markers": [
       {
         "name": "HitboxStart",
@@ -268,7 +268,7 @@
     "loop": false,
     "priority": "Action2",
     "faceOnly": false,
-    "label": "Taschenlampe C (nach Ausweichen)",
+    "label": "Taschenlampe C (nach dem Ausweichen)",
     "markers": [
       {
         "name": "Flash",
@@ -293,7 +293,7 @@
     "loop": false,
     "priority": "Action3",
     "faceOnly": false,
-    "label": "Spezialangriff A – Einsaugen + 2× Aufschlag",
+    "label": "Spezialangriff A (über Kopf)",
     "markers": [
       {
         "name": "VacuumStart",
@@ -334,7 +334,7 @@
     "loop": false,
     "priority": "Action3",
     "faceOnly": false,
-    "label": "Spezialangriff B – Hammerwurf",
+    "label": "Spezialangriff B (Hammerwurf)",
     "markers": [
       {
         "name": "VacuumStart",

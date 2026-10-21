@@ -54,7 +54,7 @@ Clips.Clips = {
 		duration = 1.6,
 		looped = false,
 		priority = "Action",
-		label = "Staubsauger ziehen A",
+		label = "Staubsauger zücken A",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -72,7 +72,7 @@ Clips.Clips = {
 		duration = 1.6,
 		looped = false,
 		priority = "Action",
-		label = "Staubsauger ziehen B (blitzschnell)",
+		label = "Staubsauger zücken B (blitzschnell)",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -90,7 +90,7 @@ Clips.Clips = {
 		duration = 1.6,
 		looped = false,
 		priority = "Action",
-		label = "Staubsauger ziehen C (Fummeln)",
+		label = "Staubsauger zücken C (ungeschickt)",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -152,7 +152,7 @@ Clips.Clips = {
 		duration = 0.95,
 		looped = false,
 		priority = "Action2",
-		label = "Aufwärtshieb",
+		label = "Aufwärtshaken",
 		markers = {
 			{
 				name = "HitboxStart",
@@ -226,7 +226,7 @@ Clips.Clips = {
 		duration = 1.3,
 		looped = false,
 		priority = "Action2",
-		label = "Taschenlampe C (nach Ausweichen)",
+		label = "Taschenlampe C (nach dem Ausweichen)",
 		markers = {
 			{
 				name = "Flash",
@@ -248,7 +248,7 @@ Clips.Clips = {
 		duration = 4.8,
 		looped = false,
 		priority = "Action3",
-		label = "Spezialangriff A – Einsaugen + 2× Aufschlag",
+		label = "Spezialangriff A (über Kopf)",
 		markers = {
 			{
 				name = "VacuumStart",
@@ -286,7 +286,7 @@ Clips.Clips = {
 		duration = 4.8,
 		looped = false,
 		priority = "Action3",
-		label = "Spezialangriff B – Hammerwurf",
+		label = "Spezialangriff B (Hammerwurf)",
 		markers = {
 			{
 				name = "VacuumStart",

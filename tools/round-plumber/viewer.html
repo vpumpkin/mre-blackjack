@@ -60,12 +60,11 @@
 	.timeline input { position: absolute; inset: 6px 0 auto 0; width: 100%; margin: 0; accent-color: var(--green); }
 	.ticks { position: absolute; inset: 0; pointer-events: none; }
 	.tick { position: absolute; top: 0; width: 2px; height: 10px; background: var(--warn); border-radius: 1px; transform: translateX(-1px); }
-	.tick span { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-family: var(--font-data); font-size: 9px; color: var(--warn); white-space: nowrap; opacity: 0.9; }
-	.tick span.low { top: 13px; }
-	.markers .id, .now .meta .id { opacity: 0.6; }
-	.markers .id { margin-left: 6px; font-family: var(--font-data); font-size: 10px; }
-	.tick:first-child span { transform: none; left: 0; }
-	.tick:last-child span { transform: translateX(-100%); left: 0; }
+	.tick-label { position: absolute; top: -13px; font-family: var(--font-data); font-size: 9px; font-style: normal; color: var(--warn); white-space: nowrap; opacity: 0.9; }
+	.tick-label.low { top: 13px; }
+	.markers .id, .now .meta .id { opacity: 0.8; }
+	.markers .id { margin-left: 2px; font-family: var(--font-data); font-size: 10px; }
+	.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 	.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	.btn {
 		appearance: none;
@@ -97,6 +96,10 @@
 		background: var(--warn);
 		border-radius: 999px;
 		padding: 4px 12px;
+		white-space: nowrap;
+		max-width: calc(100% - 32px);
+		overflow: hidden;
+		text-overflow: ellipsis;
 		opacity: 0;
 		transition: opacity 200ms ease;
 		pointer-events: none;
@@ -179,9 +182,10 @@
 </style>
 </head>
 <body>
-<main class="stage" id="stage" aria-label="3D-Ansicht des Charakters. Ziehen zum Drehen, Scrollen oder zwei Finger zum Zoomen.">
+<main class="stage" id="stage" aria-label="3D-Ansicht des Charakters. Zum Drehen ziehen, zum Zoomen scrollen oder zwei Finger spreizen.">
 	<div class="notice" id="notice">Modell wird geladen …</div>
-	<div class="toast" id="toast" role="status"></div>
+	<div class="toast" id="toast" aria-hidden="true"></div>
+	<div class="sr-only" id="announce" role="status"></div>
 	<div class="hud">
 		<div class="now"><h2 id="clipTitle">–</h2><span class="meta" id="clipMeta"></span></div>
 		<div class="timeline">
@@ -191,9 +195,9 @@
 		<div class="transport">
 			<button class="btn" id="play" type="button">Pause</button>
 			<span class="time" id="time">0,00 / 0,00 s</span>
-			<label class="speed" for="speed">Tempo <input id="speed" type="range" min="0.1" max="1.5" step="0.05" value="1"><output id="speedOut" class="time">1,00×</output></label>
+			<label class="speed" for="speed">Tempo <input id="speed" type="range" min="0.1" max="1.5" step="0.05" value="1" aria-valuetext="1,00-fach"><output id="speedOut" class="time">1,00×</output></label>
 			<button class="btn" id="fx" type="button" aria-pressed="true">Effekte</button>
-			<button class="btn" id="hitstop" type="button" aria-pressed="true" title="Kurzes Standbild bei Treffern und Aufschlägen">Trefferstopp</button>
+			<button class="btn" id="hitstop" type="button" aria-pressed="true" title="Kurzes Standbild, wenn ein Angriff trifft">Treffer-Standbild</button>
 			<button class="btn" id="cam" type="button">Kamera: Totale</button>
 		</div>
 	</div>
@@ -201,11 +205,11 @@
 <aside>
 	<header>
 		<h1>Runder Klempner</h1>
-		<p>Alle Animationen des Charakters. Antippen spielt sie ab, „Variante“ wählt zufällig eine andere Variante derselben Gruppe (nie zweimal dieselbe hintereinander). Gelbe Striche auf der Zeitleiste sind Marker für Spielereignisse.</p>
+		<p>Alle Animationen des Charakters. Antippen oder Anklicken spielt sie ab, „Variante“ wählt zufällig eine andere Variante derselben Gruppe (nie zweimal dieselbe hintereinander). Gelbe Striche auf der Zeitleiste sind Marker für Spielereignisse.</p>
 	</header>
 	<div id="groups"></div>
 	<section class="group">
-		<h3>Mimik <span class="time">nur Gesicht, über die Animation gelegt</span></h3>
+		<h3>Mimik <span class="time">nur Gesicht, zuschaltbar</span></h3>
 		<div class="faces" id="faces"></div>
 	</section>
 	<section class="group">
@@ -246,12 +250,24 @@ const GROUPS = [
 const FACE_DE = { Neutral: 'neutral', Afraid: 'ängstlich', Startled: 'erschrocken', Panic: 'panisch', Focused: 'konzentriert', Angry: 'wütend', Relieved: 'erleichtert', Proud: 'stolz', Confused: 'verwirrt' };
 // German names for the gameplay markers; the ids stay as they are in the data (game code relies on them)
 const MARKER_DE = {
-	VacuumStart: 'Sauger an', SuctionActive: 'Sog an', VacuumStop: 'Sauger aus',
-	HitboxStart: 'Trefferzone an', Impact: 'Treffer', HitboxEnd: 'Trefferzone aus', Flash: 'Blitz',
-	Grab: 'Packen', Slam01: 'Aufschlag 1', Slam02: 'Aufschlag 2', Release: 'Loslassen', Recovery: 'Wieder bereit',
-	IFrameStart: 'Unverwundbar an', IFrameEnd: 'Unverwundbar aus', Land: 'Landung',
+	VacuumStart: 'Sauger an', SuctionActive: 'Sog aktiv', VacuumStop: 'Sauger aus',
+	HitboxStart: 'Schaden an', Impact: 'Treffer', HitboxEnd: 'Schaden aus', Flash: 'Blitz',
+	Grab: 'Greifen', Slam01: 'Aufprall 1', Slam02: 'Aufprall 2', Release: 'Loslassen', Recovery: 'Wieder bereit',
+	IFrameStart: 'Unverwundbar', IFrameEnd: 'Verwundbar', Land: 'Landung',
 };
 const markerDe = (id) => MARKER_DE[id] ?? id;
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+const capital = (s) => s[0].toUpperCase() + s.slice(1);
+// durations: 0,95 s / 1,6 s / 6,0 s
+const fmtDur = (d) => fmt(d, Math.abs(d * 10 - Math.round(d * 10)) > 1e-6 ? 2 : 1);
+// width of a timeline label (9 px data font, see .tick-label)
+const labelWidth = (() => {
+	const ctx = document.createElement('canvas').getContext('2d');
+	return (text) => {
+		ctx.font = `9px ${getComputedStyle(document.documentElement).getPropertyValue('--font-data')}`;
+		return ctx.measureText(text).width;
+	};
+})();
 const FACE_BONES = new Set(['Eye_L', 'Eye_R', 'Pupil_L', 'Pupil_R', 'LidUpper_L', 'LidUpper_R', 'LidLower_L', 'LidLower_R', 'BrowIn_L', 'BrowIn_R', 'BrowOut_L', 'BrowOut_R', 'Cheek_L', 'Cheek_R', 'Nose', 'Mustache_L', 'Mustache_R', 'MouthUpper', 'MouthLower', 'MouthCorner_L', 'MouthCorner_R']);
 const HIT_STOP = { Impact: 0.07, Slam01: 0.09, Slam02: 0.13, Flash: 0.04 };
 
@@ -304,6 +320,7 @@ function resize() {
 	renderer.setSize(w, h, false);
 	camera.aspect = w / Math.max(1, h);
 	camera.updateProjectionMatrix();
+	if (current) layoutTicks();
 }
 new ResizeObserver(resize).observe(stage);
 
@@ -358,14 +375,14 @@ async function loadBytes() {
 }
 
 let model, mixer, info = {}, clips = {}, actions = {}, noFace = {};
-let current = null, faceAction = null, paused = false, speed = 1, freezeUntil = 0, lastTime = 0;
+let current = null, faceAction = null, paused = false, speed = 1, freezeUntil = 0, lastTime = 0, ready = false, firstPass = true;
 const lastVariant = {};
 const B = {};
 const views = [
 	{ name: 'Totale', dir: [0.55, 0.28, 0.79], dist: 5.4 },
 	{ name: 'Gesicht', dir: [0.15, 0.06, 1], dist: 1.55, face: true },
 	{ name: 'Seite', dir: [1, 0.2, 0.08], dist: 5.2 },
-	{ name: 'Hinten', dir: [-0.5, 0.35, -0.8], dist: 5 },
+	{ name: 'Rücken', dir: [-0.5, 0.35, -0.8], dist: 5 },
 ];
 let view = 0, tween = null;
 
@@ -388,15 +405,21 @@ try {
 		}
 	}
 	buildIndex();
+	ready = true;
 	$('notice').hidden = true;
 	select(params.get('clip') || 'Idle_Fear', true);
 	setView(Number(params.get('view') || 0), true);
 	if (params.get('face')) setFace(params.get('face'));
 	if (params.has('t')) { paused = true; $('play').textContent = 'Abspielen'; seek(Number(params.get('t'))); }
 } catch (err) {
-	$('notice').textContent = 'Das Modell konnte nicht geladen werden. Details stehen in der Browser-Konsole.';
-	$('notice').hidden = false;
 	console.error(err);
+	if (!ready) {
+		const why = err.message.startsWith('Server antwortet') ? ` (${err.message})` : '';
+		$('notice').textContent = location.protocol === 'file:' && !document.getElementById('glb-data')
+			? 'Das Modell konnte nicht geladen werden. Bitte index.html öffnen oder die Seite über einen lokalen Server laden.'
+			: `Das Modell konnte nicht geladen werden${why}. Details stehen in der Browser-Konsole.`;
+		$('notice').hidden = false;
+	}
 }
 
 // --- index ------------------------------------------------------------------------
@@ -419,7 +442,7 @@ function buildIndex() {
 				chip.type = 'button';
 				chip.className = 'chip';
 				chip.textContent = `Variante (${names.length})`;
-				chip.setAttribute('aria-label', `Zufällige Variante: ${info[names[0]].label.replace(/ [A-C](?: [–(].*)?$/, '')}`);
+				chip.setAttribute('aria-label', `Variante (${names.length}): zufällig – ${info[names[0]].label.replace(/ [A-C](?: [–(].*)?$/, '')}`);
 				chip.addEventListener('click', () => select(pickVariant(g, names)));
 				row.append(chip);
 				list.append(row);
@@ -430,7 +453,7 @@ function buildIndex() {
 				b.type = 'button';
 				b.className = 'clip';
 				b.dataset.clip = n;
-				b.innerHTML = `<span class="name">${c.label}</span><span class="dur">${fmt(c.duration, 1)} s${c.loop ? ' <span role="img" aria-label="Schleife" title="Schleife">↻</span>' : ''}</span>`;
+				b.innerHTML = `<span class="name">${esc(c.label)}</span><span class="dur">${fmtDur(c.duration)} s${c.loop ? ' <span role="img" aria-label="Schleife" title="Schleife">↻</span>' : ''}</span>`;
 				b.addEventListener('click', () => select(n));
 				list.append(b);
 			}
@@ -441,7 +464,7 @@ function buildIndex() {
 	const off = document.createElement('button');
 	off.type = 'button';
 	off.className = 'btn';
-	off.textContent = 'aus';
+	off.textContent = 'Aus';
 	off.dataset.face = '';
 	off.setAttribute('aria-pressed', 'true');
 	off.addEventListener('click', () => setFace(''));
@@ -450,7 +473,7 @@ function buildIndex() {
 		const b = document.createElement('button');
 		b.type = 'button';
 		b.className = 'btn';
-		b.textContent = de;
+		b.textContent = capital(de);
 		b.dataset.face = k;
 		b.setAttribute('aria-pressed', 'false');
 		b.addEventListener('click', () => setFace(k));
@@ -487,16 +510,12 @@ function select(name, instant = false) {
 	ghost.visible = false;
 	document.querySelectorAll('.clip').forEach((b) => b.setAttribute('aria-current', String(b.dataset.clip === name)));
 	$('clipTitle').textContent = c.label;
-	$('clipMeta').innerHTML = `<span class="id" lang="en" title="Clip-ID im Spielcode">${c.name}</span> · ${fmt(c.duration, 2)} s · ${Math.round(c.duration * 30)} Bilder${c.loop ? ' · Schleife' : ''}`;
-	// markers at (almost) the same time share one label; labels alternate rows
-	const merged = [];
-	for (const m of c.markers) {
-		const last = merged[merged.length - 1];
-		if (last && m.time - last.time < c.duration * 0.06) last.label += ` · ${markerDe(m.name)}`; else merged.push({ time: m.time, label: markerDe(m.name) });
-	}
-	$('ticks').innerHTML = merged.map((m, i) => `<i class="tick" style="left:${(m.time / c.duration) * 100}%"><span class="${i % 2 ? 'low' : ''}">${m.label}</span></i>`).join('');
+	$('clipMeta').innerHTML = `<span class="id" lang="en" title="Animations-ID im Spielcode">${esc(c.name)}</span> · ${fmt(c.duration, 2)} s · ${Math.round(c.duration * 30)} Bilder${c.loop ? ' · Schleife' : ''}`;
+	layoutTicks();
+	firstPass = true;
+	$('announce').textContent = '';
 	$('markerList').innerHTML = c.markers.length
-		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${markerDe(m.name)}<span class="id" lang="en" title="Marker-ID im Spielcode">${m.name}</span></div>`).join('')
+		? c.markers.map((m) => `<div><b>${fmt(m.time, 2)} s</b> ${esc(markerDe(m.name))} <span class="id" lang="en" title="Marker-ID im Spielcode">${esc(m.name)}</span></div>`).join('')
 		: 'Keine Marker (Schleife ohne Spielereignisse)';
 	if (paused) mixer.update(0);
 }
@@ -522,11 +541,49 @@ function seek(t) {
 	a.time = THREE.MathUtils.clamp(t, 0, info[current].duration - 1e-4);
 	lastTime = a.time;
 	mixer.update(0);
+	scrubText(a.time);
 }
 
+function scrubText(t) {
+	$('scrub').setAttribute('aria-valuetext', `${fmt(t)} von ${fmt(info[current].duration)} Sekunden`);
+}
+
+// timeline: one tick per marker at its exact time. Labels (measured, kept inside the timeline) go into
+// the first of two rows where they clear the previous label; if neither row has room, the label joins
+// the one before it ("Verwundbar · Landung").
+function layoutTicks() {
+	const c = info[current];
+	const W = $('ticks').clientWidth, GAP = 6;
+	const place = (text, x) => Math.min(Math.max(x - labelWidth(text) / 2, 0), Math.max(0, W - labelWidth(text)));
+	const rows = [null, null], labels = [];
+	for (const m of c.markers) {
+		const x = (m.time / c.duration) * W, text = markerDe(m.name), left = place(text, x);
+		const row = rows.findIndex((r) => !r || left >= r.left + labelWidth(r.text) + GAP);
+		if (row >= 0) {
+			rows[row] = { text, left, row };
+			labels.push(rows[row]);
+			continue;
+		}
+		const prev = labels[labels.length - 1];
+		prev.text += ` · ${text}`;
+		prev.left = Math.min(prev.left, Math.max(0, W - labelWidth(prev.text)));
+	}
+	$('ticks').innerHTML = c.markers.map((m) => `<i class="tick" style="left:${(m.time / c.duration) * 100}%"></i>`).join('')
+		+ labels.map((l) => `<span class="tick-label${l.row ? ' low' : ''}" style="left:${l.left.toFixed(1)}px">${esc(l.text)}</span>`).join('');
+}
+document.fonts?.ready.then(() => { if (current) layoutTicks(); });
+
 // --- UI -----------------------------------------------------------------------------
-$('play').addEventListener('click', () => { paused = !paused; $('play').textContent = paused ? 'Abspielen' : 'Pause'; });
-$('speed').addEventListener('input', (e) => { speed = Number(e.target.value); $('speedOut').textContent = `${fmt(speed)}×`; });
+$('play').addEventListener('click', () => {
+	paused = !paused;
+	$('play').textContent = paused ? 'Abspielen' : 'Pause';
+	if (current) scrubText(bodyAction(current).time);
+});
+$('speed').addEventListener('input', (e) => {
+	speed = Number(e.target.value);
+	$('speedOut').textContent = `${fmt(speed)}×`;
+	e.target.setAttribute('aria-valuetext', `${fmt(speed)}-fach`);
+});
 $('fx').addEventListener('click', (e) => { fx.on = !fx.on; e.currentTarget.setAttribute('aria-pressed', String(fx.on)); });
 $('hitstop').addEventListener('click', (e) => { fx.hitStop = !fx.hitStop; e.currentTarget.setAttribute('aria-pressed', String(fx.hitStop)); });
 $('cam').addEventListener('click', () => setView(view + 1));
@@ -542,10 +599,15 @@ addEventListener('keydown', (e) => {
 	if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') select(order[(i - 1 + order.length) % order.length]);
 });
 
-let toastTimer;
+let toastTimer, toastStart = -Infinity;
 function toast(text) {
 	const el = $('toast');
-	el.textContent = text;
+	const now = performance.now();
+	// markers a few frames apart (dodge: Verwundbar 0,40 s, Landung 0,42 s) read as one toast
+	if (el.classList.contains('on') && now - toastStart < 200) el.textContent += ` · ${text}`;
+	else { el.textContent = text; toastStart = now; }
+	// screen readers hear the markers once per selected clip, not on every loop
+	if (firstPass) $('announce').textContent = el.textContent;
 	el.classList.add('on');
 	clearTimeout(toastTimer);
 	toastTimer = setTimeout(() => el.classList.remove('on'), 450);
@@ -683,6 +745,7 @@ function frame() {
 		const t = a.time;
 		// marker crossing (handles the loop wrap)
 		if (!paused && !scrubbing) {
+			if (t < lastTime) firstPass = false; // looped
 			const hits = [];
 			for (const mk of c.markers) {
 				const crossed = t >= lastTime ? mk.time > lastTime && mk.time <= t : mk.time > lastTime || mk.time <= t;

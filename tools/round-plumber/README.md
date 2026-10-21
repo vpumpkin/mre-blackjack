@@ -4,10 +4,10 @@ Ein runder Geisterjäger-Klempner (grüne Mütze, Schnurrbart, Latzhose, große 
 
 Es gibt ihn in zwei Fassungen mit demselben Rig und denselben 32 Clips:
 
-- **Meshy-Hybrid** (`../../public/round-plumber-meshy.glb`, Standard im Viewer): Kopf, Gesicht, Mütze mit „L“, Schnurrbart, Ohren und Kugelkörper stammen aus dem Meshy-Modell (`meshy/Meshy_AI_Luigi_1021080809_texture_obj.zip`). Dessen kurze Ärmchen liegen fest auf dem Bauch und reichen nicht für Staubsauger, Taschenlampe und Uppercut. Deshalb werden sie flach auf die Kugel gedrückt und mit Hemd und Latzhose übermalt. Arme mit Fingern, Schuhe, bewegliche Augen, Lider, Brauen, Mund und die Ausrüstung kommen aus dem prozeduralen Modell. Die aufgemalten Augen und Brauen sind mit Haut übermalt.
+- **Meshy-Hybrid** (`../../public/round-plumber-meshy.glb`, Standard im Viewer): Kopf, Gesicht, Mütze mit „L“, Schnurrbart, Ohren und Kugelkörper stammen aus dem Meshy-Modell (`meshy/Meshy_AI_Luigi_1021080809_texture_obj.zip`). Dessen kurze Ärmchen liegen fest auf dem Bauch und reichen nicht für Staubsauger, Taschenlampe und Aufwärtshaken. Deshalb werden sie flach auf die Kugel gedrückt und mit Hemd und Latzhose übermalt. Arme mit Fingern, Schuhe, bewegliche Augen, Lider, Brauen, Mund und die Ausrüstung kommen aus dem prozeduralen Modell. Die aufgemalten Augen und Brauen sind mit Haut übermalt.
 - **Prozedural** (`../../public/round-plumber.glb`): alles mit three.js erzeugt, Roblox-tauglich (je Mesh unter 10.000 Dreiecken).
 
-**Ansehen:** `index.html` im Browser öffnen. Das Modell ist eingebettet, three.js kommt vom CDN (Internet nötig). Links steht die Bühne, rechts der Index aller Animationen. Dazu gibt es eine Zeitleiste mit Markern für Spielereignisse, Varianten-Auswahl, Mimik zum Darüberlegen und Effekte (Sog, Taschenlampen-Blitz, Geist beim Aufschlag, Staub, Kamerawackeln, Trefferstopp). Die Oberfläche ist komplett deutsch. Marker- und Clip-IDs (`HitboxStart`, `SlamCombo_A` …) stehen nur klein in der Markerliste und der Clip-Zeile, damit man sie den Spieldaten zuordnen kann.
+**Ansehen:** `index.html` im Browser öffnen. Das Modell ist eingebettet, three.js kommt vom CDN (Internet nötig). Links steht die Bühne, rechts der Index aller Animationen. Dazu gibt es eine Zeitleiste mit Markern für Spielereignisse, eine Variantenauswahl, zuschaltbare Mimik und Effekte (Sog, Taschenlampen-Blitz, Geist beim Aufprall, Staub, Kamerawackeln, Treffer-Standbild). Die Oberfläche ist komplett auf Deutsch. Marker- und Clip-IDs (`HitboxStart`, `SlamCombo_A` …) stehen nur klein in der Markerliste und der Clip-Zeile, damit man sie den Spieldaten zuordnen kann.
 
 ## Dateien
 
@@ -24,13 +24,13 @@ Es gibt ihn in zwei Fassungen mit demselben Rig und denselben 32 Clips:
 ## Animationen (32)
 
 - **Stehen & Laufen:** ängstliches Zittern, nervöses Umschauen, Mut sammeln, Kampfhaltung, Laufen
-- **Staubsauger:** Ziehen A/B/C, Saugen A/B (Schleifen), Wegstecken
-- **Angriffe:** Aufwärtshieb, Taschenlampen-Blendangriff A/B/C
+- **Staubsauger:** Zücken A/B/C, Saugen A/B (Endlosschleife), Wegstecken
+- **Angriffe:** Aufwärtshaken, Taschenlampen-Blendangriff A/B/C
 - **Spezialangriff:** Einsaugen + zweimal auf den Boden schlagen A/B
 - **Ausweichen:** links, rechts, zurück, jeweils als Sprung (A) und Rolle (B)
-- **Mimik (nur Gesichts-Bones, wird über die Animation gelegt):** neutral, ängstlich, erschrocken, panisch, konzentriert, wütend, erleichtert, stolz, verwirrt
+- **Mimik (nur Gesichts-Bones, lässt sich über jede Animation legen):** neutral, ängstlich, erschrocken, panisch, konzentriert, wütend, erleichtert, stolz, verwirrt
 
-Alle Varianten einer Gruppe haben dieselbe Dauer und dieselben Zeiten für die Marker der Spielereignisse (`HitboxStart`, `Impact`, `Flash`, `Grab`, `Slam01`, `Slam02`, `Release`, `IFrameStart` …). Der Build prüft das. Squash & Stretch und Pupillengröße laufen nur über Bone-Verschiebungen, nicht über Skalierung.
+Alle Varianten einer Gruppe haben dieselbe Dauer und dieselben Marker-Zeiten (`HitboxStart`, `Impact`, `Flash`, `Grab`, `Slam01`, `Slam02`, `Release`, `IFrameStart` …). Der Build prüft das. Squash & Stretch und Pupillengröße laufen nur über Bone-Verschiebungen, nicht über Skalierung.
 
 ## Neu bauen
 
