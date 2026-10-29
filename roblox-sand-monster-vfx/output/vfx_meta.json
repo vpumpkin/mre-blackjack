@@ -1,0 +1,13 @@
+{
+  "frames_per_sheet_8x8": 64,
+  "sheet_fps": 15,
+  "duration_seconds": 4.267,
+  "frame_world_size_m": 3.9,
+  "ground_v_from_bottom": 0.2263,
+  "golem_height_m": 1.948,
+  "burst_starts_at_seconds_in_collapse": 0.9,
+  "collapse_front_seconds": [
+    0.967,
+    2.5
+  ]
+}

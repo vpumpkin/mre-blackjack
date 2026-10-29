@@ -19,6 +19,7 @@ Python-Skript in Blender und für Roblox aufbereitet.
 | `output/SandGrain.png`, `output/SandDust.png` | Texturen für Roblox-ParticleEmitter (weiß, werden per `Color` eingefärbt) |
 | `output/SandGolem.fbx` | der Golem als Modell aus 16 Teilen (Kopf, Torso, Arme, Beine …) |
 | `output/vfx_meta.json` | Timing und Größen (stehen schon im Luau-Modul) |
+| `output/preview.gif`, `output/preview_greenscreen.mp4` | Vorschau (links Collapse, rechts Burst) bzw. Greenscreen-Version wie das Original |
 | `roblox/SandMonsterVFX.lua` | ModuleScript: Flipbook abspielen, Modelle zerbröseln, Sandhaufen |
 | `roblox/Example.server.lua` | Beispiel: Golem zerfällt, wenn ein Spieler ihn berührt |
 
@@ -88,7 +89,7 @@ auf, und der Server löscht das Modell nach ca. 5 Sekunden.
 Getestet mit Blender 4.5 LTS (geht ab 4.2). Rendert mit Cycles auf der CPU.
 
 ```bash
-# alles neu bauen + rendern (ca. 30–40 min auf 4 CPU-Kernen)
+# alles neu bauen + rendern (ca. 20–30 min auf 4 CPU-Kernen)
 blender -b -P blender/sand_monster_vfx.py -- --out output --save output/SandMonsterVFX.blend
 
 # schneller Probelauf mit wenigen Partikeln in kleiner Auflösung (ein paar Minuten)
