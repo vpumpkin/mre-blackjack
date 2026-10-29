@@ -388,6 +388,7 @@ def basis_from_axis(d):
 # ----------------------------------------------------------------------------
 # Feder
 # ----------------------------------------------------------------------------
+# >>> TEIL feder
 def feather(L, W, th=1.5, point=0.0, asym=1.0, bend=0.05, cup=0.10, notches=0,
             root_w=0.2, taper=0.55, rachis=0.45, nW=4, rng=RNG, jag=0.0, barbs=0.0, barb_gap=2.8):
     """Einzelne Feder lokal: x = Länge, y = Breite, z = oben. Geschlossener Körper.
@@ -446,6 +447,7 @@ def feather(L, W, th=1.5, point=0.0, asym=1.0, bend=0.05, cup=0.10, notches=0,
         ia, ib = idx(*a), idx(*b)
         F.append([ia, off + ia, off + ib, ib])
     return V, F
+# <<< TEIL feder
 
 
 def place(V, P, D, U, roll=0.0):
@@ -532,6 +534,30 @@ def material(name, color, rough=0.55, spec=0.35, emission=None, strength=0.0, co
 MB_K = 0.574  # Oberfläche eines einzelnen Metaballs liegt bei 0.574 * Radius
 
 
+# >>> TEIL koerperform
+def koerper_metaballs(ell, q):
+    """Rumpf, Brust, Bauch, Bürzel, Oberschenkel, Schultern. ell(mitte, halbachsen, rotation)."""
+    ell((0, 6, 80), (31, 46, 29), q(x=-4))           # Rumpf
+    ell((0, -26, 76), (28, 27, 30))                  # Brust
+    ell((0, 4, 66), (25, 32, 17))                    # Bauch
+    ell((0, 44, 84), (16, 20, 12), q(x=6))           # Bürzel
+    ell((0, 60, 83), (10, 14, 6.5), q(x=10))         # Schwanzansatz
+    for sx in (-1, 1):
+        ell((sx * 14, -6, 58), (10.5, 12, 14))       # Oberschenkel ("Hosen")
+        ell((sx * 24, -16, 92), (11, 15, 9), q(y=sx * 20))  # Schulter
+# <<< TEIL koerperform
+
+
+# >>> TEIL kopfform
+def kopf_metaballs(ell, q):
+    """Hals, Kopf, Wangen, Stirn."""
+    ell((0, -50, 85), (22, 20, 24))                  # Hals (Krause)
+    ell((0, -70, 91), (18.5, 22, 18), q(x=8))        # Kopf
+    ell((0, -82, 85), (13, 14, 11))                  # Wangen / Kinn
+    ell((0, -85, 94), (10, 12, 8.5), q(x=12))        # Stirn zum Schnabel
+# <<< TEIL kopfform
+
+
 def metaball_body(coll):
     mb = bpy.data.metaballs.new("KoerperMB")
     mb.resolution = 1.4
@@ -551,18 +577,8 @@ def metaball_body(coll):
     from mathutils import Euler
     q = lambda x=0, y=0, z=0: Euler((math.radians(x), math.radians(y), math.radians(z))).to_quaternion()
 
-    ell((0, 6, 80), (31, 46, 29), q(x=-4))           # Rumpf
-    ell((0, -26, 76), (28, 27, 30))                  # Brust
-    ell((0, 4, 66), (25, 32, 17))                    # Bauch
-    ell((0, -50, 85), (22, 20, 24))                  # Hals (Krause)
-    ell((0, -70, 91), (18.5, 22, 18), q(x=8))        # Kopf
-    ell((0, -82, 85), (13, 14, 11))                  # Wangen / Kinn
-    ell((0, -85, 94), (10, 12, 8.5), q(x=12))        # Stirn zum Schnabel
-    ell((0, 44, 84), (16, 20, 12), q(x=6))           # Bürzel
-    ell((0, 60, 83), (10, 14, 6.5), q(x=10))         # Schwanzansatz
-    for sx in (-1, 1):
-        ell((sx * 14, -6, 58), (10.5, 12, 14))       # Oberschenkel ("Hosen")
-        ell((sx * 24, -16, 92), (11, 15, 9), q(y=sx * 20))  # Schulter
+    koerper_metaballs(ell, q)
+    kopf_metaballs(ell, q)
     ob = bpy.data.objects.new("KoerperMB", mb)
     coll.objects.link(ob)
     dg = bpy.context.evaluated_depsgraph_get()
@@ -671,6 +687,7 @@ def tube_mod(z0, z1, dz, K, r_out, r_in=None):
 # ============================================================================
 # Flügel
 # ============================================================================
+# >>> TEIL fluegel
 WS = 0.78  # Flügel-Skalierung
 
 BONE = [(-6.0, 2.0), (42.0, 16.0), (88.0, -2.0), (122.0, 8.0)]  # Schulter, Ellbogen, Handgelenk, Handspitze
@@ -798,170 +815,34 @@ def build_wing(shoulder, mirror, coll, mat):
     return acc.build(name, coll, mat)
 
 
-# ============================================================================
-# Hauptaufbau
-# ============================================================================
-def build():
-    t0 = time.time()
-    scene = bpy.context.scene
-    us = scene.unit_settings
-    us.system = "METRIC"
-    us.scale_length = 0.001
-    us.length_unit = "MILLIMETERS"
-
-    for name in ("Cube", "Light", "Camera"):        # Werks-Startszene aufräumen
-        ob = bpy.data.objects.get(name)
-        if ob is not None and not ob.users_collection[0].name.startswith(COLL_NAME):
-            bpy.data.objects.remove(ob, do_unlink=True)
-
-    old = bpy.data.collections.get(COLL_NAME)
-    if old:
-        for ob in list(old.all_objects):
-            remove_object(ob)
-        for c in list(old.children_recursive):
-            bpy.data.collections.remove(c)
-        bpy.data.collections.remove(old)
-    root = bpy.data.collections.new(COLL_NAME)
-    scene.collection.children.link(root)
-
-    def sub(name):
-        c = bpy.data.collections.new(name)
-        root.children.link(c)
-        return c
-
-    c_body, c_wing, c_det, c_cap, c_help = sub("Koerper"), sub("Fluegel"), sub("Details"), sub("Schraubdeckel"), sub("Hilfsobjekte")
-    c_help.hide_render = True
-
-    m_body = material("Kraehe_Schwarz", (0.030, 0.031, 0.036), rough=0.58, spec=0.35)
-    m_beak = material("Kraehe_Schnabel", (0.022, 0.022, 0.025), rough=0.32, spec=0.5, coat=0.2)
-    m_eye = material("Kraehe_Auge", (0.85, 0.02, 0.01), rough=0.2, spec=0.6, emission=(1.0, 0.03, 0.01), strength=2.5)
-    m_pupil = material("Kraehe_Pupille", (0.08, 0.0, 0.0), rough=0.15, spec=0.6)
-
-    # ---------------------------------------------------------------- Körper
-    log("Körper (Metaballs -> Voxel-Mesh)")
-    body = metaball_body(c_body)
-    body.data.materials.append(m_body)
-    bvh = bvh_of(body)
-
-    # ------------------------------------------------- Auflage Schraubdeckel
-    log("Auflagefläche + Hohlraum")
-    O, e1, e2, d = landing_frame(bvh, (0, 18, 74), (0, 0.62, -0.78))
-    SPERRZONEN.clear()
-    SPERRZONEN.append((O, d, AUFLAGE_RADIUS + 3.0, -3.0, 60.0))
-    V, F = tube_mod(0.0, 40.0, 20.0, 128, lambda th, z: AUFLAGE_RADIUS)
-    cut = make_object("cut_auflage", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
-    boolean(body, cut, "DIFFERENCE")
-    remove_object(cut)
-    outer_bvh = bvh_of(body)
-
-    # ------------------------------------------------------------- Hohlraum
-    cav = bpy.data.objects.new("Hohlraum", body.data.copy())
-    c_help.objects.link(cav)
-    dm = cav.modifiers.new("inset", "DISPLACE")
-    dm.mid_level = 0.0
-    dm.strength = -WAND
-    rm = cav.modifiers.new("remesh", "REMESH")
-    rm.mode = "VOXEL"
-    rm.voxel_size = 1.2
-    apply_modifiers(cav)
-    V, F = ellipsoid((0, 8, 80), (40, 50, 29), K=64, rings=32)
-    lim = make_object("lim", V, F, c_help, smooth=False)
-    boolean(cav, lim, "INTERSECT")
-    remove_object(lim)
-    # 45°-Dach über dem Hohlraum: druckt ohne Stützen im Inneren, First unter dem Schlitz
-    top = outer_bvh.ray_cast(Vector((0, 6, 300)), Vector((0, 0, -1)))[0]
-    V, F = roof_solid(Vector((0, top.y, top.z - WAND - 0.3)), SCHLITZ[0] / 2 + 2.0, slope=DACH_STEIGUNG)
-    lim = make_object("dach", V, F, c_help, smooth=False)
-    boolean(cav, lim, "INTERSECT")
-    remove_object(lim)
-    cav_bvh = bvh_of(cav)
-    log("  Innenvolumen: %.0f ml" % (cav_volume(cav) / 1000.0))
-
-    boolean(body, cav, "DIFFERENCE")
-
-    # Loch + Innengewinde-Kragen
-    log("Innengewinde")
-    rhole = R_MIN + GEWINDE_SPIEL + GEWINDE_TIEFE + 0.9
-    V, F = tube_mod(-WAND - 4.0, 5.0, 10.0, 160, lambda th, z: rhole)
-    cut = make_object("cut_loch", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
-    boolean(body, cut, "DIFFERENCE")
-    remove_object(cut)
-    V, F = tube_mod(-KRAGEN_LAENGE, 0.0, GEWINDE_STEIGUNG / 18, 180,
-                    lambda th, z: KRAGEN_RADIUS - np.clip(1.5 - (z + KRAGEN_LAENGE), 0, 1.5), r_innen)
-    collar = make_object("Kragen", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
-    boolean(body, collar, "UNION")
-    remove_object(collar)
-
-    # Münzschlitz
-    log("Münzschlitz")
-    hit = outer_bvh.ray_cast(Vector((0, 6, 300)), Vector((0, 0, -1)))
-    sn = hit[1].normalized()
-    s1 = Vector((1, 0, 0))
-    s2 = sn.cross(s1).normalized()
-    s1 = s2.cross(sn).normalized()
-    V, F = prism(stadium(*SCHLITZ), -14.0, 6.0)
-    cut = make_object("cut_schlitz", frame_to_world(V, hit[0], s1, s2, sn), F, c_help, smooth=False)
-    boolean(body, cut, "DIFFERENCE")
-    remove_object(cut)
-    # Rahmen um den Schlitz (leicht vertieft)
-    V, F = prism(stadium(SCHLITZ[0] + 7, SCHLITZ[1] + 7), -0.9, 6.0)
-    cut = make_object("cut_rahmen", frame_to_world(V, hit[0], s1, s2, sn), F, c_help, smooth=False)
-    boolean(body, cut, "DIFFERENCE")
-    remove_object(cut)
-    set_smooth(body, angle=math.radians(40))
-    SPERRZONEN.append((hit[0], sn, SCHLITZ[0] / 2 + 6.0, -3.0, 300.0))
-
-    # ---------------------------------------------------------- Schraubdeckel
-    log("Schraubdeckel")
-    cap_parts = []
-    # Gewindestopfen (Becher, innen hohl – wird von der Scheibe geschlossen)
-    cap_parts.append(tube_mod(-STOPFEN_LAENGE, 0.8, GEWINDE_STEIGUNG / 18, 180, r_aussen, lambda th, z: STOPFEN_INNEN))
-    rf = AUFLAGE_RADIUS - 0.7
-
-    def r_flansch(th, z):
-        knurl = 0.55 * (0.5 + 0.5 * np.cos(40 * th)) ** 2
-        ch = np.clip(0.7 - (3.4 - z), 0, 0.7) + np.clip(0.4 - (z - 0.2), 0, 0.4)
-        return rf - knurl - ch
-
-    cap_parts.append(tube_mod(0.2, 3.4, 0.2, 240, r_flansch))
-    cap_parts.append(prism(stadium(2 * rf - 12, 8.0, 12), 3.0, 10.0, chamfer=1.2,
-                           inset_poly=stadium(2 * rf - 14.4, 5.6, 12)))
-    # Pfeil "auf" (gegen Uhrzeigersinn) als flache Erhebung
-    for sgn in (1, -1):
-        arc = []
-        for a in np.linspace(math.radians(25), math.radians(70), 10):
-            arc.append((sgn * 17.5 * math.cos(a), sgn * 17.5 * math.sin(a), 3.2))
-        cap_parts.append(loft(arc, [1.0] * len(arc), K=10))
-        a = math.radians(78)
-        tip = (sgn * 17.5 * math.cos(a), sgn * 17.5 * math.sin(a), 3.2)
-        base_a = math.radians(66)
-        bc = Vector((sgn * 17.5 * math.cos(base_a), sgn * 17.5 * math.sin(base_a), 3.2))
-        cap_parts.append(loft([bc[:], tip], [2.4, 0.2], K=10, tips=(0, 0)))
-    cap = make_object("Schraubdeckel", *cap_parts[0], c_cap, m_body, smooth=False)
-    for V, F in cap_parts[1:]:
-        part = make_object("deckel_teil", V, F, c_help, smooth=False)
-        boolean(cap, part, "UNION")
-        remove_object(part)
-    cap_frame = Matrix(((e1.x, e2.x, d.x, O.x), (e1.y, e2.y, d.y, O.y), (e1.z, e2.z, d.z, O.z), (0, 0, 0, 1)))
-    cap.data.transform(cap_frame)
-    # Druckausrichtung (Becherrand auf dem Druckbett) für den STL-Export merken
-    druck = Matrix.Translation((0, 0, STOPFEN_LAENGE)) @ cap_frame.inverted() @ Matrix.Translation((0, 0, -SOCKEL_Z)).inverted()
-    cap["druck_matrix"] = [v for row in druck for v in row]
-    set_smooth(cap, angle=math.radians(35))
-
-    # ----------------------------------------------------------------- Flügel
-    log("Flügel")
+def schulter_punkt(outer_bvh):
+    """Ansatzpunkt des linken Flügels auf der Körperoberfläche (rechts wird gespiegelt)."""
     sdir = Vector((1, -0.1, 0.32)).normalized()
-    hitL = outer_bvh.ray_cast(Vector((0, -16, 88)) + sdir * 300, -sdir)
-    shoulderL = hitL[0] - hitL[1] * 3.0
-    wl = build_wing(shoulderL, False, c_wing, m_body)
-    wr = build_wing(shoulderL, True, c_wing, m_body)
-    for w in (wl, wr):            # Flügel enden exakt auf der Körperoberfläche (Klebefläche)
-        boolean(w, body, "DIFFERENCE")
+    hit = outer_bvh.ray_cast(Vector((0, -16, 88)) + sdir * 300, -sdir)
+    return hit[0] - hit[1] * 3.0
+# <<< TEIL fluegel
 
-    # ---------------------------------------------------------------- Details
-    log("Kopf, Schnabel, Augen")
-    det = Acc()
+
+# ============================================================================
+# Bauteile (jeweils zwischen ">>> TEIL" und "<<< TEIL")
+# ============================================================================
+# >>> TEIL schlitz
+def schlitz_geometrie():
+    """Schnittkörper für den Münzschlitz im Schlitz-Koordinatensystem
+    (x = quer zum Körper, z = Oberflächennormale, Ursprung auf der Oberfläche).
+    Liste aus (Operation, (V, F)). Die Durchgangsöffnung muss SCHLITZ groß bleiben."""
+    return [
+        ("DIFFERENCE", prism(stadium(*SCHLITZ), -14.0, 6.0)),
+        # Rahmen um den Schlitz (leicht vertieft)
+        ("DIFFERENCE", prism(stadium(SCHLITZ[0] + 7, SCHLITZ[1] + 7), -0.9, 6.0)),
+    ]
+# <<< TEIL schlitz
+
+
+# >>> TEIL kopf
+def build_kopf(outer_bvh, det, c_det, m_beak, m_eye, m_pupil):
+    """Schnabel, Augen, Brauen, Nasenborsten, Kopffedern, Halskrause.
+    Federn kommen in den Sammler det; Rückgabe: (Schnabel, Augen, Pupillen)."""
     beak = Acc()
 
     # Oberschnabel
@@ -1041,7 +922,6 @@ def build():
         surface_feather(det, outer_bvh, (0, -80, 90), dirv, (0, -1, -0.35), 10 - 3 * abs(a), 4.0,
                         lift=0.0, embed=0.6, th=0.9, point=0.8, taper=0.3, bend=0.10, cup=0.15, rachis=0.4)
 
-    log("Halskrause, Brust, Kopf-Federn")
     # Kopf: kleine schuppige Federn
     for ring, ang_el in enumerate(np.linspace(-15, 65, 6)):
         nring = 16 - ring
@@ -1073,6 +953,13 @@ def build():
                             lift=math.radians(lerp(16, 30, throat) + RNG.uniform(-5, 5)), embed=1.0,
                             th=1.3, point=0.85, taper=0.25, bend=-0.02, cup=0.05, rachis=0.5,
                             notches=RNG.choice((0, 0, 1)), jag=0.1)
+    return beak_ob, eye_ob, pupil_ob
+# <<< TEIL kopf
+
+
+# >>> TEIL koerperfedern
+def build_koerperfedern(outer_bvh, det):
+    """Brust-, Oberschenkel- und Schulterfedern (in den Sammler det)."""
     # Brust
     for ri, el in enumerate(np.linspace(8, -55, 7)):
         n = 11 - abs(ri - 3)
@@ -1103,9 +990,12 @@ def build():
                 surface_feather(det, outer_bvh, (sx * 10, -22, 90), dirv, (sx * 0.3, 1, -0.2),
                                 RNG.uniform(12, 15), 9, lift=math.radians(8), embed=0.9, th=1.2, point=0.4,
                                 taper=0.45, bend=0.1, cup=0.2, jag=0.1)
+# <<< TEIL koerperfedern
 
-    # Schwanz
-    log("Schwanz")
+
+# >>> TEIL schwanz
+def build_schwanz(outer_bvh, c_det, m_body):
+    """Schwanzfächer mit Oberschwanzdecken am Bürzel."""
     tail = Acc()
     th_hit = outer_bvh.ray_cast(Vector((0, 300, 84)), Vector((0, -1, 0)))
     troot = th_hit[0] + Vector((0, -10, 0.5))
@@ -1129,9 +1019,13 @@ def build():
         V, F = feather(30, 13, th=1.4, taper=0.5, point=0.2, bend=0.06, cup=0.15, jag=0.08)
         tail.add(place(V, P, D, (0, 0, 1), roll=f * 0.2), F)
     tail_ob = tail.build("Schwanz", c_det, m_body)
+    return tail_ob
+# <<< TEIL schwanz
 
-    # Beine, Füße, Krallen
-    log("Beine und Füße")
+
+# >>> TEIL beine
+def build_beine(c_det, m_leg):
+    """Läufe, Zehen und Krallen (Sockel-Oberseite liegt beim Aufbau bei SOCKEL_Z + 7.2)."""
     legs = Acc()
     for sx in (1, -1):
         top = Vector((sx * 14.5, -4.0, 50.0))
@@ -1168,13 +1062,185 @@ def build():
             cr = [(lerp(2.0, 0.3, t), lerp(2.2, 0.35, t)) for t in np.linspace(0, 1, 12)]
             V, F = loft([c[:] for c in cl], cr, K=10, tips=(0.4, 0.3))
             legs.add(V, F)
-    legs_ob = legs.build("Beine", c_det, m_beak)
+    legs_ob = legs.build("Beine", c_det, m_leg)
+    return legs_ob
 
-    # Sockel
+
+def build_sockel(c_det, m_body):
+    """Runder Sockel."""
     V, F = lathe([(0, 0), (56.5, 0), (58.0, 1.2), (58.5, 3.0), (58.5, 5.0), (57.5, 6.6), (56.0, 7.2), (0, 7.2)], K=160)
     V = V + np.array([0, -6.0, SOCKEL_Z])
     base = make_object("Sockel", V, F, c_det, m_body)
     set_smooth(base, angle=math.radians(30))
+    return base
+# <<< TEIL beine
+
+
+# ============================================================================
+# Hauptaufbau
+# ============================================================================
+def build():
+    t0 = time.time()
+    scene = bpy.context.scene
+    us = scene.unit_settings
+    us.system = "METRIC"
+    us.scale_length = 0.001
+    us.length_unit = "MILLIMETERS"
+
+    for name in ("Cube", "Light", "Camera"):        # Werks-Startszene aufräumen
+        ob = bpy.data.objects.get(name)
+        if ob is not None and not ob.users_collection[0].name.startswith(COLL_NAME):
+            bpy.data.objects.remove(ob, do_unlink=True)
+
+    old = bpy.data.collections.get(COLL_NAME)
+    if old:
+        for ob in list(old.all_objects):
+            remove_object(ob)
+        for c in list(old.children_recursive):
+            bpy.data.collections.remove(c)
+        bpy.data.collections.remove(old)
+    root = bpy.data.collections.new(COLL_NAME)
+    scene.collection.children.link(root)
+
+    def sub(name):
+        c = bpy.data.collections.new(name)
+        root.children.link(c)
+        return c
+
+    c_body, c_wing, c_det, c_cap, c_help = sub("Koerper"), sub("Fluegel"), sub("Details"), sub("Schraubdeckel"), sub("Hilfsobjekte")
+    c_help.hide_render = True
+
+    m_body = material("Kraehe_Schwarz", (0.020, 0.020, 0.022), rough=0.6, spec=0.2)
+    m_beak = material("Kraehe_Schnabel", (0.014, 0.014, 0.015), rough=0.32, spec=0.45, coat=0.2)
+    m_eye = material("Kraehe_Auge", (0.85, 0.02, 0.01), rough=0.2, spec=0.6, emission=(1.0, 0.03, 0.01), strength=2.5)
+    m_pupil = material("Kraehe_Pupille", (0.08, 0.0, 0.0), rough=0.15, spec=0.6)
+
+    # ---------------------------------------------------------------- Körper
+    log("Körper (Metaballs -> Voxel-Mesh)")
+    body = metaball_body(c_body)
+    body.data.materials.append(m_body)
+    bvh = bvh_of(body)
+
+    # ------------------------------------------------- Auflage Schraubdeckel
+    log("Auflagefläche + Hohlraum")
+    O, e1, e2, d = landing_frame(bvh, (0, 18, 74), (0, 0.62, -0.78))
+    SPERRZONEN.clear()
+    SPERRZONEN.append((O, d, AUFLAGE_RADIUS + 3.0, -3.0, 60.0))
+    V, F = tube_mod(0.0, 40.0, 20.0, 128, lambda th, z: AUFLAGE_RADIUS)
+    cut = make_object("cut_auflage", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
+    boolean(body, cut, "DIFFERENCE")
+    remove_object(cut)
+    outer_bvh = bvh_of(body)
+
+    # ------------------------------------------------------------- Hohlraum
+    cav = bpy.data.objects.new("Hohlraum", body.data.copy())
+    c_help.objects.link(cav)
+    dm = cav.modifiers.new("inset", "DISPLACE")
+    dm.mid_level = 0.0
+    dm.strength = -WAND
+    rm = cav.modifiers.new("remesh", "REMESH")
+    rm.mode = "VOXEL"
+    rm.voxel_size = 1.2
+    apply_modifiers(cav)
+    V, F = ellipsoid((0, 8, 80), (40, 50, 29), K=64, rings=32)
+    lim = make_object("lim", V, F, c_help, smooth=False)
+    boolean(cav, lim, "INTERSECT")
+    remove_object(lim)
+    # 45°-Dach über dem Hohlraum: druckt ohne Stützen im Inneren, First unter dem Schlitz
+    top = outer_bvh.ray_cast(Vector((0, 6, 300)), Vector((0, 0, -1)))[0]
+    V, F = roof_solid(Vector((0, top.y, top.z - WAND - 0.3)), SCHLITZ[0] / 2 + 2.0, slope=DACH_STEIGUNG)
+    lim = make_object("dach", V, F, c_help, smooth=False)
+    boolean(cav, lim, "INTERSECT")
+    remove_object(lim)
+    cav_bvh = bvh_of(cav)
+    log("  Innenvolumen: %.0f ml" % (cav_volume(cav) / 1000.0))
+
+    boolean(body, cav, "DIFFERENCE")
+
+    # Loch + Innengewinde-Kragen
+    log("Innengewinde")
+    rhole = R_MIN + GEWINDE_SPIEL + GEWINDE_TIEFE + 0.9
+    V, F = tube_mod(-WAND - 4.0, 5.0, 10.0, 160, lambda th, z: rhole)
+    cut = make_object("cut_loch", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
+    boolean(body, cut, "DIFFERENCE")
+    remove_object(cut)
+    V, F = tube_mod(-KRAGEN_LAENGE, 0.0, GEWINDE_STEIGUNG / 18, 180,
+                    lambda th, z: KRAGEN_RADIUS - np.clip(1.5 - (z + KRAGEN_LAENGE), 0, 1.5), r_innen)
+    collar = make_object("Kragen", frame_to_world(V, O, e1, e2, d), F, c_help, smooth=False)
+    boolean(body, collar, "UNION")
+    remove_object(collar)
+
+    # Münzschlitz
+    log("Münzschlitz")
+    hit = outer_bvh.ray_cast(Vector((0, 6, 300)), Vector((0, 0, -1)))
+    sn = hit[1].normalized()
+    s1 = Vector((1, 0, 0))
+    s2 = sn.cross(s1).normalized()
+    s1 = s2.cross(sn).normalized()
+    for op, (V, F) in schlitz_geometrie():
+        cut = make_object("schlitz_teil", frame_to_world(V, hit[0], s1, s2, sn), F, c_help, smooth=False)
+        boolean(body, cut, op)
+        remove_object(cut)
+    set_smooth(body, angle=math.radians(40))
+    SPERRZONEN.append((hit[0], sn, SCHLITZ[0] / 2 + 6.0, -3.0, 300.0))
+
+    # ---------------------------------------------------------- Schraubdeckel
+    log("Schraubdeckel")
+    cap_parts = []
+    # Gewindestopfen (Becher, innen hohl – wird von der Scheibe geschlossen)
+    cap_parts.append(tube_mod(-STOPFEN_LAENGE, 0.8, GEWINDE_STEIGUNG / 18, 180, r_aussen, lambda th, z: STOPFEN_INNEN))
+    rf = AUFLAGE_RADIUS - 0.7
+
+    def r_flansch(th, z):
+        knurl = 0.55 * (0.5 + 0.5 * np.cos(40 * th)) ** 2
+        ch = np.clip(0.7 - (3.4 - z), 0, 0.7) + np.clip(0.4 - (z - 0.2), 0, 0.4)
+        return rf - knurl - ch
+
+    cap_parts.append(tube_mod(0.2, 3.4, 0.2, 240, r_flansch))
+    cap_parts.append(prism(stadium(2 * rf - 12, 8.0, 12), 3.0, 10.0, chamfer=1.2,
+                           inset_poly=stadium(2 * rf - 14.4, 5.6, 12)))
+    # Pfeil "auf" (gegen Uhrzeigersinn) als flache Erhebung
+    for sgn in (1, -1):
+        arc = []
+        for a in np.linspace(math.radians(25), math.radians(70), 10):
+            arc.append((sgn * 17.5 * math.cos(a), sgn * 17.5 * math.sin(a), 3.2))
+        cap_parts.append(loft(arc, [1.0] * len(arc), K=10))
+        a = math.radians(78)
+        tip = (sgn * 17.5 * math.cos(a), sgn * 17.5 * math.sin(a), 3.2)
+        base_a = math.radians(66)
+        bc = Vector((sgn * 17.5 * math.cos(base_a), sgn * 17.5 * math.sin(base_a), 3.2))
+        cap_parts.append(loft([bc[:], tip], [2.4, 0.2], K=10, tips=(0, 0)))
+    cap = make_object("Schraubdeckel", *cap_parts[0], c_cap, m_body, smooth=False)
+    for V, F in cap_parts[1:]:
+        part = make_object("deckel_teil", V, F, c_help, smooth=False)
+        boolean(cap, part, "UNION")
+        remove_object(part)
+    cap_frame = Matrix(((e1.x, e2.x, d.x, O.x), (e1.y, e2.y, d.y, O.y), (e1.z, e2.z, d.z, O.z), (0, 0, 0, 1)))
+    cap.data.transform(cap_frame)
+    # Druckausrichtung (Becherrand auf dem Druckbett) für den STL-Export merken
+    druck = Matrix.Translation((0, 0, STOPFEN_LAENGE)) @ cap_frame.inverted() @ Matrix.Translation((0, 0, -SOCKEL_Z)).inverted()
+    cap["druck_matrix"] = [v for row in druck for v in row]
+    set_smooth(cap, angle=math.radians(35))
+
+    # ----------------------------------------------------------------- Flügel
+    log("Flügel")
+    shoulderL = schulter_punkt(outer_bvh)
+    wl = build_wing(shoulderL, False, c_wing, m_body)
+    wr = build_wing(shoulderL, True, c_wing, m_body)
+    for w in (wl, wr):            # Flügel enden exakt auf der Körperoberfläche (Klebefläche)
+        boolean(w, body, "DIFFERENCE")
+
+    # ---------------------------------------------------------------- Details
+    det = Acc()
+    log("Kopf, Schnabel, Augen, Halskrause")
+    beak_ob, eye_ob, pupil_ob = build_kopf(outer_bvh, det, c_det, m_beak, m_eye, m_pupil)
+    log("Brust-, Schenkel- und Schulterfedern")
+    build_koerperfedern(outer_bvh, det)
+    log("Schwanz")
+    tail_ob = build_schwanz(outer_bvh, c_det, m_body)
+    log("Beine, Füße, Sockel")
+    legs_ob = build_beine(c_det, m_beak)
+    base = build_sockel(c_det, m_body)
 
     det_ob = det.build("Federn_Details", c_det, m_body)
 
@@ -1233,29 +1299,28 @@ def setup_scene():
         lo.rotation_euler = [math.radians(a) for a in rot]
         coll.objects.link(lo)
 
-    sun("Sonne_Key", (40, 10, -35), 3.2, 12)
-    sun("Sonne_Fill", (60, -10, 150), 1.0, 30)
+    sun("Sonne_Key", (40, 10, -35), 3.8, 14)
+    sun("Sonne_Fill", (60, -10, 150), 0.2, 30)
     world = scene.world or bpy.data.worlds.new("World")
     scene.world = world
     if bpy.app.version < (5, 0, 0):
         world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (0.82, 0.83, 0.85, 1)
-    bg.inputs[1].default_value = 0.9
+    bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1)
+    bg.inputs[1].default_value = 0.5
     me = bpy.data.meshes.new("Boden")
     s = 3000
     me.from_pydata([(-s, -s, -0.05), (s, -s, -0.05), (s, s, -0.05), (-s, s, -0.05)], [], [(0, 1, 2, 3)])
     floor = bpy.data.objects.new("Boden", me)
     coll.objects.link(floor)
-    mf = material("Boden_weiss", (0.85, 0.86, 0.88), rough=0.9, spec=0.1)
+    mf = material("Boden_weiss", (0.58, 0.58, 0.58), rough=0.9, spec=0.1)
     floor.data.materials.append(mf)
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 96
     scene.cycles.use_denoising = True
     scene.render.resolution_x = 1600
     scene.render.resolution_y = 900
-    scene.view_settings.view_transform = "AgX" if "AgX" in [i.identifier for i in
-        bpy.types.ColorManagedViewSettings.bl_rna.properties["view_transform"].enum_items] else "Filmic"
+    scene.view_settings.view_transform = "Standard"   # kontrastreich wie die Vorlage
 
 
 def write_stl(path, objects):
