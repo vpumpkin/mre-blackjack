@@ -49,7 +49,7 @@ STOPFEN_INNEN = 11.5          # Deckel ist innen hohl (Becher)
 SCHLITZ = (34.0, 5.5)         # Münzschlitz Länge x Breite
 DACH_STEIGUNG = 0.8           # Innendecke: 0.8 ≈ 39° zur Waagrechten (druckt ohne Stützen)
 
-SOCKEL_Z = 14.0              # Höhe der Sockel-Unterseite beim Aufbau (wird am Ende auf 0 gesetzt)
+SOCKEL_Z = 2.0               # Höhe der Sockel-Unterseite beim Aufbau (wird am Ende auf 0 gesetzt)
 
 SEED = 7
 RNG = random.Random(SEED)
@@ -390,12 +390,24 @@ def basis_from_axis(d):
 # ----------------------------------------------------------------------------
 # >>> TEIL feder
 def feather(L, W, th=1.5, point=0.0, asym=1.0, bend=0.05, cup=0.10, notches=0,
-            root_w=0.2, taper=0.55, rachis=0.45, nW=4, rng=RNG, jag=0.0, barbs=0.0, barb_gap=2.8):
+            root_w=0.2, taper=0.55, rachis=0.45, nW=4, rng=RNG, jag=0.0, barbs=0.0, barb_gap=2.8,
+            soft=False, rachis_w=0.16, notch_t=None, notch_dp=None, notch_side=None, emarg=0.0, emarg_t=0.55):
     """Einzelne Feder lokal: x = Länge, y = Breite, z = oben. Geschlossener Körper.
-    barbs > 0 graviert schräge Federäste (Rillentiefe in mm) in die Oberseite."""
+    barbs > 0 graviert schräge Federäste (Rillentiefe in mm) in die Oberseite.
+    Optionale Zusätze (ohne sie bleibt das Ergebnis exakt wie bisher):
+      soft=True   gewölbter, zum Rand hin weich abgeschrägter Querschnitt (Rand ~30 % der Dicke),
+                  Spitze auch in der Dicke verrundet -> saubere, "gedruckte" Federn statt Pappkarten
+      rachis_w    Breite des Schafts (Anteil der halben Federbreite, kleiner = schärfere Schaftlinie)
+      notch_t / notch_dp / notch_side   Kerbe an fester Stelle / Tiefe / Seite (+1 = +y, -1 = -y)
+                  statt zufällig
+      emarg       Verengung beider Fahnen ab emarg_t (Anteil, z. B. 0.35) – die schlanken "Finger"
+                  der äußeren Handschwingen von Raben und Krähen"""
     nL = max(10, int(L / 2.0))
     if barbs > 0:
         nL = max(nL, int(L / 0.65))
+        nW = max(nW, 6)
+    if soft:
+        nL = max(nL, int(L / 1.5))
         nW = max(nW, 6)
     t = np.linspace(0.0, 1.0, nL + 1)
     s = np.linspace(-1.0, 1.0, 2 * nW + 1)
@@ -403,13 +415,15 @@ def feather(L, W, th=1.5, point=0.0, asym=1.0, bend=0.05, cup=0.10, notches=0,
     x = np.clip((t - taper) / (1 - taper), 0, 1)
     tipf = (1 - point) * np.sqrt(np.clip(1 - x * x, 0, 1)) + point * (1 - x) ** 0.9
     base = base * np.maximum(tipf, 0.07)
+    if emarg > 0:
+        base = base * (1 - emarg * smoothstep(emarg_t - 0.06, emarg_t + 0.1, t))
     wpos = base.copy()
     wneg = base * asym
     for _ in range(notches):
-        tn = rng.uniform(0.38, 0.9)
-        dp = rng.uniform(0.25, 0.5)
+        tn = rng.uniform(0.38, 0.9) if notch_t is None else notch_t
+        dp = rng.uniform(0.25, 0.5) if notch_dp is None else notch_dp
         prof = dp * np.clip(1 - np.abs(t - tn) / 0.055, 0, 1)
-        if rng.random() < 0.5:
+        if (rng.random() < 0.5) if notch_side is None else (notch_side > 0):
             wpos = wpos * (1 - prof)
         else:
             wneg = wneg * (1 - prof)
@@ -421,15 +435,24 @@ def feather(L, W, th=1.5, point=0.0, asym=1.0, bend=0.05, cup=0.10, notches=0,
     X = T * L
     Y = S * Wd
     camber = -cup * (W / 2) * S ** 2 - bend * L * T ** 2
-    h = th * 0.5 * (0.62 + 0.38 * (1 - np.abs(S))) * (1 - 0.3 * T)
-    r = rachis * th * np.exp(-(S / 0.16) ** 2) * (1 - 0.7 * T)
+    if soft:
+        # gewölbt: dick in der Mitte, Rand weich abgeschrägt, Spitze flach auslaufend
+        spitze = np.sqrt(np.clip(tipf, 0.12, 1.0))[:, None]
+        h = th * 0.5 * (0.3 + 0.7 * np.sqrt(np.clip(1 - S * S, 0, 1))) * (1 - 0.3 * T) * spitze
+        r = rachis * th * np.exp(-(S / rachis_w) ** 2) * (1 - 0.7 * T) * spitze
+    else:
+        h = th * 0.5 * (0.62 + 0.38 * (1 - np.abs(S))) * (1 - 0.3 * T)
+        r = rachis * th * np.exp(-(S / rachis_w) ** 2) * (1 - 0.7 * T)
     Zt = camber + h + r
     if barbs > 0:
         A = np.abs(S)
         phase = (X - 0.9 * np.abs(Y)) / barb_gap
         mask = smoothstep(0.14, 0.3, A) * (1 - smoothstep(0.82, 1.0, A)) * smoothstep(0.08, 0.2, T)
         Zt = Zt - barbs * mask * (0.5 + 0.5 * np.cos(2 * np.pi * phase)) ** 3
-    Zb = camber - h * 0.8 - 0.25 * r
+    if soft:
+        Zb = camber - 0.7 * h - 0.2 * r
+    else:
+        Zb = camber - h * 0.8 - 0.25 * r
     top = np.stack([X, Y, Zt], -1).reshape(-1, 3)
     bot = np.stack([X, Y, Zb], -1).reshape(-1, 3)
     nI, nJ = nL + 1, 2 * nW + 1
@@ -535,26 +558,44 @@ MB_K = 0.574  # Oberfläche eines einzelnen Metaballs liegt bei 0.574 * Radius
 
 
 # >>> TEIL koerperform
+KOERPER_MB_SCHWELLE = 0.6          # Metaball-Schwellwert (wie in metaball_body)
+HOSEN_MITTE = (15.5, -7.0, 54.0)   # Mitte der Oberschenkel-"Hosen" (x wird gespiegelt)
+
+
+def koerper_ell_weich(ell, c, semi, rot=None, stiff=2.0):
+    """Metaball mit eigener Steifigkeit. Die Halbachsen werden so umgerechnet, dass die freie
+    Oberfläche auch bei weicher Steifigkeit bei 'semi' liegt (weiche Bälle verschmelzen sanfter)."""
+    k = math.sqrt(1.0 - (KOERPER_MB_SCHWELLE / stiff) ** (1.0 / 3.0))
+    f = MB_K / k
+    ell(c, tuple(s * f for s in semi), rot, stiff=stiff)
+
+
 def koerper_metaballs(ell, q):
-    """Rumpf, Brust, Bauch, Bürzel, Oberschenkel, Schultern. ell(mitte, halbachsen, rotation)."""
-    ell((0, 6, 80), (31, 46, 29), q(x=-4))           # Rumpf
-    ell((0, -26, 76), (28, 27, 30))                  # Brust
-    ell((0, 4, 66), (25, 32, 17))                    # Bauch
-    ell((0, 44, 84), (16, 20, 12), q(x=6))           # Bürzel
-    ell((0, 60, 83), (10, 14, 6.5), q(x=10))         # Schwanzansatz
+    """Rumpf, Brust, Bauch, Bürzel, Oberschenkel, Schultern. ell(mitte, halbachsen, rotation).
+    Ein einziges großes, glattes Ei: höchster Punkt am Münzschlitz (y ≈ 6), der Rücken fällt
+    gleichmäßig zum Kopf und zum Schwanz ab, die Unterseite ist ein sauberer Bogen ohne Hängebauch.
+    Hinweis: Den Scheitel nicht weiter anheben – sonst geraten die inneren Flügelfedern
+    (Schirmfedern über dem Rücken) unter die Hohlraumdecke ("ragt in den Hohlraum")."""
+    ell((0, 6, 81), (36, 50, 31), q(x=-1))           # Rumpf (Scheitel über dem Schlitz)
+    ell((0, -28, 76), (31, 27, 27))                  # Brust
+    ell((0, 2, 69), (27, 32, 14))                    # Bauch (flach, kein Hängebauch)
+    koerper_ell_weich(ell, (0, 42, 85), (20, 26, 13), q(x=4), stiff=1.4)   # Bürzel, weich eingeschmolzen
+    hx, hy, hz = HOSEN_MITTE
     for sx in (-1, 1):
-        ell((sx * 14, -6, 58), (10.5, 12, 14))       # Oberschenkel ("Hosen")
-        ell((sx * 24, -16, 92), (11, 15, 9), q(y=sx * 20))  # Schulter
+        ell((sx * hx, hy, hz), (11, 12, 13.5))       # Oberschenkel ("Hosen"), hängen etwas unter dem Bauch
+        koerper_ell_weich(ell, (sx * 25, -16, 93), (8.5, 11, 6.5), q(y=sx * 20), stiff=1.2)  # Schulter
 # <<< TEIL koerperform
 
 
 # >>> TEIL kopfform
 def kopf_metaballs(ell, q):
-    """Hals, Kopf, Wangen, Stirn."""
-    ell((0, -50, 85), (22, 20, 24))                  # Hals (Krause)
-    ell((0, -70, 91), (18.5, 22, 18), q(x=8))        # Kopf
-    ell((0, -82, 85), (13, 14, 11))                  # Wangen / Kinn
-    ell((0, -85, 94), (10, 12, 8.5), q(x=12))        # Stirn zum Schnabel
+    """Hals, Kopf (hohe, runde Schädelkuppel), Wangen/Kinn, Stirn, Brauenwülste."""
+    ell((0, -50, 85), (22, 20, 24))                  # Hals – Anschluss an den Rumpf (bleibt)
+    ell((0, -72, 93), (21.5, 24.5, 21), q(x=6))      # Kopf: große Kuppel
+    ell((0, -84, 85), (15, 14.5, 12.5))              # Wangen / Kinn
+    ell((0, -88, 97), (10.5, 11, 8.5), q(x=16))      # Stirn -> Schnabelansatz
+    for sx in (-1, 1):                               # Brauenwulst: schwer, schräg zum Schnabel
+        ell((sx * 11.6, -89.0, 100.0), (2.4, 8.0, 2.2), q(x=22, z=-sx * 18), stiff=1.4)
 # <<< TEIL kopfform
 
 
@@ -690,89 +731,153 @@ def tube_mod(z0, z1, dz, K, r_out, r_in=None):
 # >>> TEIL fluegel
 WS = 0.78  # Flügel-Skalierung
 
-BONE = [(-6.0, 2.0), (42.0, 16.0), (88.0, -2.0), (122.0, 8.0)]  # Schulter, Ellbogen, Handgelenk, Handspitze
+# Vorderkante (u außen, v hinten, ungeskaliert): Schulter, Ellbogen, Handgelenk, Handspitze.
+# Der Arm schwingt in sanftem Bogen nach vorn (wie im Referenzbild), die Hand zeigt nach außen.
+BONE = [(-6.0, 3.0), (40.0, -6.0), (88.0, -13.0), (122.0, -12.0)]
+
+# Haltung je Seite wie im Referenzbild: links (+X, im Referenzbild hinten) hoch erhoben, die Hand biegt
+# sich in einem durchgehenden Bogen weiter nach oben; rechts (-X, vorne) weit nach vorn-außen gespreizt,
+# Oberseite zum Betrachter geneigt, Handschwingen hängen leicht.
+FLUEGEL_POSE = {False: dict(dihedral=8.0, sweep=-2.0, twist=26.0, hand_lift=30.0),
+                True: dict(dihedral=-8.0, sweep=-20.0, twist=20.0, hand_lift=-14.0)}
+HAND_BIEGUNG = (66.0, 114.0)   # u-Bereich, über den sich die Hand gleichmäßig biegt (kein Knick am Handgelenk)
+VERWINDUNG = (0.3, 50.0)       # Anstellwinkel wächst von 30 % an der Schulter auf 100 % bei u = 50: innen liegt
+                               # der Flügel flach am Rücken an, außen zeigt er seine Oberseite
+
+SCHINDEL = math.radians(7.0)   # Querneigung jeder Schwungfeder (Außenseite höher) -> saubere Dachziegel-Stufen
+N_STUFE = 0.35                 # Höhenversatz benachbarter Schwungfedern (innere liegen oben, wie beim Vogel)
+N_OBEN = 5.5                   # Höhe der innersten Schirmfeder
+HOHLRAUM_ABSTAND = 0.8         # Mindestabstand aller Flügelteile zum Hohlraum (mm)
+ARM_START = -10.0              # Vorderkante beginnt im Rumpf (wird bei Bedarf nach außen verkürzt)
+DREHPUNKT_N = 7.0              # Flügel drehen um einen Punkt in Höhe der Vorderkante (nicht um die Unterseite),
+                               # damit der dicke Schulteransatz beim Absenken nicht in den Rumpf schwenkt
+
+
+_BONE_KURVE = []
 
 
 def bone_at(u):
-    us = [p[0] for p in BONE]
-    vs = [p[1] for p in BONE]
-    return float(np.interp(u, us, vs))
+    """Vorderkante bei u – weiche Kurve (Catmull-Rom) durch die BONE-Punkte, ohne Knicke."""
+    if not _BONE_KURVE:
+        pts, _ = resample(BONE, [0.0] * len(BONE), 90)
+        _BONE_KURVE.extend([np.array([p[0] for p in pts]), np.array([p[1] for p in pts])])
+    return float(np.interp(u, _BONE_KURVE[0], _BONE_KURVE[1]))
+
+
+def schwung_index(u):
+    """Fortlaufende Nummer der Schwungfeder bei u (0 = innerste Schirmfeder ... 23 = äußerste Handschwinge)."""
+    return float(np.interp(u, [-2.0, 2.5, 7.0, 11.0, 86.0, 89.0, 121.0], [0.0, 1.0, 2.0, 3.0, 13.0, 14.0, 23.0]))
+
+
+def n_basis(u):
+    """Höhe der Schwungfeder-Lage bei u; die Deckfeder-Reihen liegen darauf."""
+    return N_OBEN - N_STUFE * schwung_index(u)
+
+
+def hand_angle(f):
+    """Richtung der Handschwingen, f = 0 (innen) ... 1 (außen): innen geschlossen, außen gefingert."""
+    return lerp(62.0, 16.0, min(max(f, 0.0), 1.0) ** 1.8)
 
 
 def flight_angle(u):
     """Richtung der Federn (Grad, 0 = nach außen, 90 = nach hinten)."""
     if u <= 88:
-        return 100.0 - 10.0 * (u / 88.0)
-    return lerp(88.0, 14.0, (u - 88.0) / 34.0)
+        return lerp(88.0, 74.0, max(u, 0.0) / 88.0)
+    return hand_angle((u - 89.0) / 32.0)
+
+
+def _profil_vorderkante(a, t):
+    """Querschnitt der Vorderkante (x = nach hinten, y = oben): runde Nase, flachere Unterseite;
+    hinten läuft sie dünn und leicht angehoben aus und legt sich wie eine Haut über die Wurzeln der
+    kleinen Decken (keine Stufe zwischen Wulst und Federn)."""
+    c, s = math.cos(a), math.sin(a)
+    k = 1.0 if s >= 0 else 0.75
+    if c <= 0:
+        return c, s * k
+    return c * 0.9, s * k * (1.0 - 0.3 * c) + 0.6 * c * c
+
+
+def vorderkante(u0):
+    """Vorderkante (Patagium) ab u0: kräftige, runde Nase vorn, nach hinten flach über den kleinen
+    Decken auslaufend; zum Rumpf hin deutlich dicker (weicher, polsterartiger Übergang in die Schulter)."""
+    path, radii = [], []
+    n_st = max(20, int((122.0 - u0) / 2.8))
+    for u in np.linspace(u0, 122.0, n_st):
+        senke = 0.5 * max(8.0 - u, 0.0)         # Schulterende taucht schräg in die Flanke ein
+        path.append((u * WS, (bone_at(max(u, -6.0)) + 1.0) * WS, n_basis(max(u, -2.0)) + 3.0 - senke))
+        rx = float(np.interp(u, [-10, 0, 20, 40, 88, 122], [11.0, 9.0, 7.0, 6.0, 4.5, 2.4]))
+        ry = float(np.interp(u, [-10, 0, 20, 40, 88, 122], [10.0, 8.5, 6.4, 5.2, 3.8, 2.0]))
+        radii.append((rx, ry))
+    return loft(path, radii, K=28, shape=_profil_vorderkante, tips=(2.0, 1.5))
 
 
 def wing_geometry():
-    """Linker Flügel in lokalen Koordinaten (u außen, v hinten, n oben). Liefert Liste
-    (V, F, hand) – hand=True für Teile, die mit der Hand mitgedreht werden."""
+    """Linker Flügel in lokalen Koordinaten (u außen, v hinten, n oben). Liefert Liste (V, F, x) –
+    x = u-Position (mm) der Federwurzel, an der die Feder starr mitgebogen wird, oder "arm" für die
+    Vorderkante (wird punktweise gebogen)."""
     parts = []
+    rng = random.Random(SEED + 101)   # eigener Zufall: beide Flügel gleich, globaler RNG bleibt unberührt
 
-    def fe(u, vofs, n, ang, L, W, hand=False, **kw):
+    def fe(u, d0, n, ang, L, W, vofs=2.5, pitch=-0.035, roll=SCHINDEL, **kw):
+        """Feder bei u; d0 = Abstand der Wurzel entlang der Federachse (Deckfedern liegen weiter hinten)."""
         a = math.radians(ang)
-        D = Vector((math.cos(a), math.sin(a), -0.035))
-        P = Vector((u * WS, (bone_at(u) + vofs) * WS, n))
-        V, F = feather(L * WS, W * WS, **kw)
-        parts.append((place(V, P, D, (0, 0, 1), roll=RNG.uniform(-0.05, 0.05)), F, hand))
+        D = Vector((math.cos(a), math.sin(a), pitch))
+        P = Vector(((u + d0 * math.cos(a)) * WS, (bone_at(u) + vofs + d0 * math.sin(a)) * WS, n))
+        V, F = feather(L * WS, W * WS, soft=True, rng=rng, **kw)
+        parts.append((place(V, P, D, (0, 0, 1), roll=-roll), F, P.x))
 
-    # Handschwingen (10)
-    plens = [80, 84, 88, 93, 98, 103, 106, 107, 104, 95]
+    schwung = dict(th=2.0, bend=0.035, cup=0.05, rachis=0.5, rachis_w=0.1, nW=7)
+    # Handschwingen (10): breite Lanzettfedern mit runder Spitze; die äußeren drei bilden die Spitze,
+    # die äußeren fünf spreizen sich zu Fingern, die äußeren vier haben eine weiche Kerbe
+    plens = [81, 84, 87, 91, 95, 99, 102, 104, 101, 94]
     for i in range(10):
         f = i / 9
         u = lerp(89.0, 121.0, f)
-        ang = lerp(80.0, 12.0, f) + RNG.uniform(-2, 2)
-        outer = i >= 5
-        fe(u, 2.5, 0.25 + 0.42 * i, ang, plens[i], lerp(17, 13.5, f), hand=True,
-           th=1.6, point=0.25 if outer else 0.05, asym=0.55 if outer else 0.8,
-           taper=0.42 if outer else 0.6, notches=1 + (i % 2), bend=0.05, cup=0.12, jag=0.08, barbs=0.35)
-    # Armschwingen (12) + Schirmfedern (3)
-    for i in range(12):
+        fe(u, 0.0, n_basis(u), hand_angle(f) + rng.uniform(-0.5, 0.5), plens[i], lerp(25.0, 20.0, f),
+           point=0.15, taper=0.6, asym=lerp(0.85, 0.68, f),
+           emarg=0.0 if i < 5 else lerp(0.2, 0.38, (i - 5) / 4), emarg_t=0.52,
+           notches=1 if i >= 6 else 0, notch_t=0.78, notch_dp=0.2, notch_side=1, **schwung)
+    # Armschwingen (11): lang und breit -> tiefe Flügelfläche, durchgehende, sanft gewellte Hinterkante
+    for i in range(11):
+        f = i / 10
+        u = lerp(11.0, 86.0, f)
+        fe(u, 0.0, n_basis(u), flight_angle(u) + rng.uniform(-0.5, 0.5), lerp(90, 86, f), 21,
+           point=0.0, taper=0.75, asym=0.8, **schwung)
+    # Schirmfedern (3): liegen hinter der Schulter über der Flanke
+    for i in range(3):
+        u = -2.0 + 4.5 * i
+        fe(u, 0.0, n_basis(u), 92.0 - 2.0 * i, 86 + 2 * i, 21, vofs=4.0,
+           point=0.0, taper=0.75, asym=0.85, **schwung)
+
+    # Deckfedern: drei klar getrennte Reihen langer, runder Federn; jede Reihe liegt höher und
+    # ihre Spitzen legen sich auf die Reihe darunter (deutliche Schattenstufe)
+    decke = dict(th=2.2, bend=0.045, cup=0.06, rachis=0.4, rachis_w=0.12, nW=6, asym=0.9,
+                 pitch=-0.03, roll=0.0)
+    for i in range(14):                                     # große Decken
+        f = i / 13
+        u = lerp(-1.0, 119.0, f)
+        fe(u, 19.0, n_basis(u) + 2.2, flight_angle(u) + rng.uniform(-1, 1), lerp(38, 34, f), 12.5,
+           point=0.0, taper=0.7, **decke)
+    for i in range(13):                                     # mittlere Decken
+        f = i / 12
+        u = lerp(1.0, 108.0, f)
+        fe(u, 10.0, n_basis(u) + 4.0, flight_angle(u) - 3 + rng.uniform(-1, 1), lerp(32, 27, f), 11.5,
+           point=0.0, taper=0.68, **decke)
+    for i in range(12):                                     # kleine Decken, Wurzeln versetzt unter der Vorderkante
         f = i / 11
-        u = lerp(6.0, 86.0, f)
-        ang = 97.0 - 8.0 * f + RNG.uniform(-2, 2)
-        fe(u, 2.5, 4.4 - 0.36 * i, ang, lerp(64, 72, f), 19, th=1.6, point=0.0,
-           taper=0.62, notches=1, bend=0.04, cup=0.12, jag=0.06, barbs=0.35)
-    for i in range(3):
-        fe(-4.0 + 4.5 * i, 4.0, 5.0 + 0.3 * i, 108 - 4 * i, 56, 19, th=1.6, taper=0.6, notches=1, bend=0.05,
-           barbs=0.35)
-    # Große Decken
-    for i in range(24):
-        u = lerp(-2.0, 120.0, i / 23)
-        ang = flight_angle(u) + RNG.uniform(-3, 3)
-        fe(u, 1.0, 6.2, ang, lerp(38, 31, i / 23), 14, hand=u > 88, th=1.4, point=0.15,
-           taper=0.5, notches=RNG.choice((0, 1)), bend=0.07, cup=0.14, jag=0.06, barbs=0.3, barb_gap=2.4)
-    # Mittlere Decken
-    for i in range(24):
-        u = lerp(-4.0, 116.0, i / 23) + 2.5
-        ang = flight_angle(u) - 6 + RNG.uniform(-4, 4)
-        fe(u, -1.5, 7.8, ang, lerp(25, 20, i / 23), 12, hand=u > 88, th=1.3, point=0.3,
-           taper=0.45, bend=0.08, cup=0.15, jag=0.1)
-    # Kleine Decken (zwei Reihen, schuppenartig)
-    for row, (vofs, n, L) in enumerate(((-3.5, 9.2, 16.0), (-7.5, 10.4, 13.0))):
-        for i in range(26):
-            u = lerp(-10.0, 112.0 - row * 6, i / 25) + row * 2.3
-            ang = flight_angle(u) - 12 + RNG.uniform(-6, 6)
-            fe(u, vofs, n, ang, L, 10, hand=u > 88, th=1.2, point=0.35, taper=0.45,
-               bend=0.10, cup=0.16, jag=0.12)
-    # Daumenfittich
-    for i in range(3):
-        fe(86.0 + 2 * i, -6.0, 9.5 + 0.4 * i, -18 + 10 * i, 30 - 3 * i, 9, hand=True,
-           th=1.3, point=0.4, taper=0.4, bend=0.04)
-    # Armknochen / Vorderkante
-    path, radii = [], []
-    for u in np.linspace(-10.0, 122.0, 26):
-        path.append((u * WS, (bone_at(max(u, -6.0)) - 1.0) * WS, 3.8 - 0.8 * (u / 122.0)))
-        rr = float(np.interp(u, [-10, 0, 42, 88, 122], [9.5, 8.5, 6.5, 5.0, 3.0])) * WS
-        radii.append((rr * 1.15, rr * 0.68))
-    V, F = loft(path, radii, K=18, tips=(2.0, 2.0))
+        u = lerp(2.0, 96.0, f)
+        fe(u, 2.5 + (1.2 if i % 2 else -1.2), n_basis(u) + 5.8, flight_angle(u) - 6 + rng.uniform(-1, 1),
+           lerp(24, 20, f), 10.5, point=0.0, taper=0.66, **decke)
+
+    V, F = vorderkante(ARM_START)
     parts.append((V, F, "arm"))
     return parts
 
 
-def wing_transform(dihedral=14, sweep=18, twist=22, hand_lift=10):
+def wing_transform(dihedral=8.0, sweep=-2.0, twist=26.0, hand_lift=30.0):
+    """Haltung des Flügels: liefert (M, hand, verwinde). M dreht den ganzen Flügel (Pfeilung, V-Stellung);
+    hand(V, x) biegt Punkte V, die an der u-Position x (mm, je Punkt oder je Feder) hängen, gleichmäßig um
+    hand_lift Grad nach oben; verwinde(V, x) stellt sie um die Spannweitenachse an (zur Spitze hin zunehmend)."""
     def rx(a):
         return Matrix.Rotation(math.radians(a), 3, "X")
 
@@ -782,42 +887,117 @@ def wing_transform(dihedral=14, sweep=18, twist=22, hand_lift=10):
     def rz(a):
         return Matrix.Rotation(math.radians(a), 3, "Z")
 
-    M = rz(sweep) @ ry(-dihedral) @ rx(twist)
-    wrist = Vector((88.0 * WS, bone_at(88.0) * WS, 6.0))
-    H = ry(-hand_lift) @ rz(6)
-    return np.array(M), np.array(H), np.array(wrist)
+    M = rz(sweep) @ ry(-dihedral)
+    x0, x1 = HAND_BIEGUNG[0] * WS, HAND_BIEGUNG[1] * WS
+    k = math.radians(hand_lift) / (x1 - x0)
+    zc = n_basis(88.0) + 4.0                    # Biegeachse in Höhe der Vorderkante
+
+    def hand(V, x):
+        if abs(k) < 1e-9:
+            return V
+        x = np.broadcast_to(np.asarray(x, float), (len(V),))
+        s = np.clip(x - x0, 0.0, x1 - x0)       # gebogenes Stück
+        e = np.maximum(x - x1, 0.0)             # gerade Verlängerung dahinter
+        phi = k * s
+        c, sn = np.cos(phi), np.sin(phi)
+        ax = x - s - e + sn / k + e * c         # Achsenpunkt nach dem Biegen
+        az = (1.0 - c) / k + e * sn
+        rx_ = V[:, 0] - x
+        rz_ = V[:, 2] - zc
+        out = V.copy()
+        out[:, 0] = ax + rx_ * c - rz_ * sn
+        out[:, 2] = zc + az + rx_ * sn + rz_ * c
+        return out
+
+    def verwinde(V, x):
+        x = np.broadcast_to(np.asarray(x, float), (len(V),))
+        a = math.radians(twist) * (VERWINDUNG[0] + (1 - VERWINDUNG[0]) * smoothstep(0.0, VERWINDUNG[1] * WS, x))
+        c, sn = np.cos(a), np.sin(a)
+        y, z = V[:, 1], V[:, 2] - DREHPUNKT_N
+        out = V.copy()
+        out[:, 1] = y * c - z * sn
+        out[:, 2] = DREHPUNKT_N + y * sn + z * c
+        return out
+
+    return np.array(M), hand, verwinde
+
+
+def _hohlraum_bvh():
+    """BVH des Hohlraums (Hilfsobjekt aus build()), um Flügelteile davon fernzuhalten."""
+    cav = bpy.data.objects.get("Hohlraum")
+    if cav is None:
+        return None
+    co = mesh_arrays(cav)
+    return BVHTree.FromPolygons(co.tolist(), [tuple(p.vertices) for p in cav.data.polygons]), co.min(0), co.max(0)
+
+
+def _ragt_in_hohlraum(cav, V):
+    bvh, lo, hi = cav
+    m = HOHLRAUM_ABSTAND + 0.5
+    V = V[np.all((V > lo - m) & (V < hi + m), axis=1)]
+    for v in V:
+        p = Vector(v)
+        loc, nrm, _, dist = bvh.find_nearest(p)
+        # vorzeichenbehafteter Abstand (an Kanten des Hohlraums ist die Flächennormale allein unzuverlässig)
+        if loc is not None and (dist < HOHLRAUM_ABSTAND or (p - loc).dot(nrm) < 0.0):
+            return True
+    return False
 
 
 def build_wing(shoulder, mirror, coll, mat):
-    M, H, wrist = wing_transform()
+    M, hand, verwinde = wing_transform(**FLUEGEL_POSE[mirror])
+    piv = np.array([0.0, 0.0, DREHPUNKT_N])
+    sx = np.array([-1.0 if mirror else 1.0, 1.0, 1.0])
+    cav = _hohlraum_bvh()
     acc = Acc()
-    skipped = 0
-    for V, F, hand in wing_geometry():
+    skipped = deep = 0
+    aussen = M[:, 0]                       # lokale u-Achse (nach außen) in Weltkoordinaten
+
+    def setze(V, x):
         V = np.asarray(V)
-        if hand == "arm":
-            # Handteil des Knochens sanft mitdrehen
-            w = smoothstep(80 * WS, 95 * WS, V[:, 0])[:, None]
-            Vh = (V - wrist) @ H.T + wrist
-            V = V * (1 - w) + Vh * w
-        elif hand:
-            V = (V - wrist) @ H.T + wrist
-        V = V @ M.T + np.array(shoulder[:])
-        if hand != "arm" and in_sperrzone(V * np.array([-1.0 if mirror else 1.0, 1, 1])):
+        xr = V[:, 0] if x == "arm" else x
+        V = verwinde(hand(V, xr), xr)
+        return (V - piv) @ M.T + piv + np.array(shoulder[:])
+
+    for V, F, x in wing_geometry():
+        V = setze(V, x)
+        if x != "arm" and in_sperrzone(V * sx):
             skipped += 1
             continue
+        if cav is not None and x == "arm":
+            # Schulterende der Vorderkante so weit kürzen, dass es dem Hohlraum fernbleibt
+            u0 = ARM_START
+            while _ragt_in_hohlraum(cav, V * sx) and u0 < 4.0:
+                u0 += 1.5
+                V0, F = vorderkante(u0)
+                V = setze(V0, x)
+            if u0 > ARM_START:
+                log("  Vorderkante beginnt bei u=%.1f (Hohlraum)" % u0)
+        elif cav is not None:
+            # Feder, die zu tief in die Flanke taucht, ein Stück nach außen rücken (max. 3 mm), sonst weglassen
+            for k in range(3):
+                if not _ragt_in_hohlraum(cav, V * sx):
+                    break
+                V = V + aussen * 1.5
+            else:
+                if _ragt_in_hohlraum(cav, V * sx):
+                    deep += 1
+                    continue
         if mirror:
             acc.add_mirrored(V, F)
         else:
             acc.add(V, F)
     if skipped:
         log("  %d Federn wegen Münzschlitz/Deckel ausgelassen" % skipped)
+    if deep:
+        log("  %d Federn zu nah am Hohlraum ausgelassen" % deep)
     name = "Fluegel_rechts" if mirror else "Fluegel_links"
     return acc.build(name, coll, mat)
 
 
 def schulter_punkt(outer_bvh):
     """Ansatzpunkt des linken Flügels auf der Körperoberfläche (rechts wird gespiegelt)."""
-    sdir = Vector((1, -0.1, 0.32)).normalized()
+    sdir = Vector((1, -0.05, 0.12)).normalized()
     hit = outer_bvh.ray_cast(Vector((0, -16, 88)) + sdir * 300, -sdir)
     return hit[0] - hit[1] * 3.0
 # <<< TEIL fluegel
@@ -832,244 +1012,518 @@ def schlitz_geometrie():
     (x = quer zum Körper, z = Oberflächennormale, Ursprung auf der Oberfläche).
     Liste aus (Operation, (V, F)). Die Durchgangsöffnung muss SCHLITZ groß bleiben."""
     return [
-        ("DIFFERENCE", prism(stadium(*SCHLITZ), -14.0, 6.0)),
-        # Rahmen um den Schlitz (leicht vertieft)
-        ("DIFFERENCE", prism(stadium(SCHLITZ[0] + 7, SCHLITZ[1] + 7), -0.9, 6.0)),
+        # klares Rechteck mit senkrechten Wänden und scharfer Kante (kein Rahmen, keine Lippe)
+        ("DIFFERENCE", prism(schlitz_rechteck(*SCHLITZ, r=0.6), -16.0, 8.0)),
     ]
+
+
+def schlitz_rechteck(length, width, r=0.6, n=3):
+    """Rechteck length x width (gegen den Uhrzeigersinn) mit kleinem Eckradius r."""
+    hx, hy = length / 2 - r, width / 2 - r
+    pts = []
+    for cx, cy, a0 in ((hx, -hy, -90), (hx, hy, 0), (-hx, hy, 90), (-hx, -hy, 180)):
+        for i in range(n + 1):
+            a = math.radians(a0 + 90.0 * i / n)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
 # <<< TEIL schlitz
 
 
 # >>> TEIL kopf
-def build_kopf(outer_bvh, det, c_det, m_beak, m_eye, m_pupil):
-    """Schnabel, Augen, Brauen, Nasenborsten, Kopffedern, Halskrause.
-    Federn kommen in den Sammler det; Rückgabe: (Schnabel, Augen, Pupillen)."""
-    beak = Acc()
+SCHNABEL_BASIS = (0.0, -86.0, 91.5)   # Drehpunkt des Schnabels (steckt im Gesicht)
+SCHNABEL_NEIGUNG = 12.0               # Schnabelachse zeigt so viele Grad nach unten
+SCHNABEL_OFFEN = 12.0                 # Öffnungswinkel des Unterschnabels
+MUNDWINKEL = (3.0, -7.8)              # Drehpunkt des Unterschnabels (s, h)
 
-    # Oberschnabel
+# Oberschnabel (s entlang der Achse, Oberkante, Unterkante, halbe Breite) – massig, Haken nur vorne
+OBERSCHNABEL = [(0, 13.6, -8.6, 12.8), (8.5, 13.1, -8.1, 12.3), (17, 11.8, -7.4, 10.7), (25, 9.6, -6.5, 8.6),
+                (32.5, 6.7, -5.7, 6.5), (38.5, 3.4, -5.1, 4.6), (44, -0.2, -4.9, 3.0), (47.8, -4.0, -6.1, 1.9),
+                (50.2, -7.6, -8.2, 1.0)]
+# Unterschnabel geschlossen (s, Schneide, Unterkante, halbe Breite)
+UNTERSCHNABEL = [(0, -7.9, -19.5, 11.6), (8.5, -7.7, -18.5, 11.1), (17, -7.1, -16.4, 9.4), (25, -6.5, -14.2, 7.5),
+                 (32.5, -6.1, -12.1, 5.5), (38.5, -6.1, -10.5, 3.5), (42.5, -6.5, -9.4, 1.8),
+                 (44.5, -6.9, -8.9, 0.9)]
+
+
+def schnabel_rahmen():
+    """Achsen des Schnabels: f nach vorne (geneigt), h nach oben, x seitlich."""
+    t = math.radians(SCHNABEL_NEIGUNG)
+    f = Vector((0.0, -math.cos(t), -math.sin(t)))
+    h = Vector((0.0, -math.sin(t), math.cos(t)))
+    return Vector(SCHNABEL_BASIS), f, h
+
+
+def schnabel_punkt(s, hgt):
+    B, f, h = schnabel_rahmen()
+    return B + f * s + h * hgt
+
+
+def unterkiefer(s, hgt):
+    """Punkt am geöffneten Unterschnabel: Drehung um den Mundwinkel."""
+    a = math.radians(SCHNABEL_OFFEN)
+    s0, h0 = MUNDWINKEL
+    ds, dh = s - s0, hgt - h0
+    return s0 + ds * math.cos(a) + dh * math.sin(a), h0 - ds * math.sin(a) + dh * math.cos(a)
+
+
+def build_schnabel(c_det, m_beak):
+    beak = Acc()
+    B, f, h = schnabel_rahmen()
+
+    # Querschnitte: gewölbter First oben, unten scharfe Schneiden mit hohlem Gaumen
     def upper_shape(a, t):
         c, s = math.cos(a), math.sin(a)
         if s >= 0:
-            return c * (1 - 0.25 * s ** 4), s ** 0.85
-        return c, s * 0.35
+            return c * (1 - 0.3 * s ** 4), s ** 0.8
+        return c, -0.3 * min(1.0, -4 * s) * c ** 4 + 0.08 * (1 - c * c)
 
-    # (y, Oberkante, Unterkante, halbe Breite) – kräftiger, gebogener Rabenschnabel
-    up = [(-84, 101.0, 86.0, 10.0), (-95, 97.0, 86.0, 8.6), (-105, 93.5, 85.0, 6.9), (-114, 89.0, 83.0, 5.3),
-          (-121, 84.0, 79.5, 3.9), (-126, 78.5, 75.0, 2.5), (-128.5, 73.5, 71.0, 1.3)]
-    up_path = [(0, y, lo + (hi - lo) / 1.35 * 0.35) for y, hi, lo, w in up]
-    up_r = [(w, (hi - lo) / 1.35) for y, hi, lo, w in up]
-    up_path, up_r = resample(up_path, up_r, 40)
-    V, F = loft(up_path, up_r, K=32, shape=upper_shape, tips=(0, 1.6), up=(0, 0, 1))
+    path, rad = [], []
+    for s, hi, lo, w in OBERSCHNABEL:
+        path.append(schnabel_punkt(s, lo + (hi - lo) / 1.3 * 0.3)[:])
+        rad.append((w, (hi - lo) / 1.3))
+    path, rad = resample(path, rad, 90)
+    V, F = loft(path, rad, K=56, shape=upper_shape, tips=(0, 1.2), up=h[:])
+    # Nasenloch: kleine ovale Delle seitlich am Oberschnabel
+    for sx in (1, -1):
+        c = schnabel_punkt(15.0, 3.8)
+        rel = V - np.array(c[:])
+        ls = rel @ np.array(f[:])
+        lh = rel @ np.array(h[:])
+        d2 = (ls / 1.9) ** 2 + (lh / 1.2) ** 2
+        m = (d2 < 1.0) & (V[:, 0] * sx > 3.0)
+        V[m, 0] -= sx * 0.9 * (1 - d2[m]) ** 1.5
     beak.add(V, F)
 
-    def lower_shape(a, t):
+    def lower_shape(a, t):          # oben Rinne für die Zunge
         c, s = math.cos(a), math.sin(a)
         if s >= 0:
-            return c, s * 0.3
-        return c * (1 - 0.2 * s ** 4), -((-s) ** 0.9)
+            return c, 0.3 * min(1.0, 4 * s) * c ** 4 - 0.1 * (1 - c * c)
+        return c * (1 - 0.2 * s ** 4), -((-s) ** 0.85)
 
-    lo = [(-84, 84.5, 76.0, 9.0), (-95, 84.0, 78.0, 7.6), (-105, 80.0, 75.0, 6.0), (-113, 76.0, 72.0, 4.4),
-          (-119, 72.0, 69.2, 2.6), (-121.5, 70.2, 68.6, 1.2)]
-    lo_path = [(0, y, hi - (hi - lo_) / 1.3 * 0.3) for y, hi, lo_, w in lo]
-    lo_r = [(w, (hi - lo_) / 1.3) for y, hi, lo_, w in lo]
-    lo_path, lo_r = resample(lo_path, lo_r, 30)
-    V, F = loft(lo_path, lo_r, K=28, shape=lower_shape, tips=(0, 0.8), up=(0, 0, 1))
+    path, rad = [], []
+    for s, hi, lo, w in UNTERSCHNABEL:
+        ss, hh = unterkiefer(s, hi - (hi - lo) / 1.3 * 0.3)
+        path.append(schnabel_punkt(ss, hh)[:])
+        rad.append((w, (hi - lo) / 1.3))
+    path, rad = resample(path, rad, 60)
+    V, F = loft(path, rad, K=40, shape=lower_shape, tips=(0, 0.8), up=h[:])
+    beak.add(V, F)
+
+    # Rachen: schließt den Mundwinkel innen, kurz und zurückgesetzt
+    def ip(tab, col, s):
+        return float(np.interp(s, [p[0] for p in tab], [p[col] for p in tab]))
+
+    path, rad = [], []
+    for s in np.linspace(0, 9, 5):
+        top = ip(OBERSCHNABEL, 2, s)
+        ss, bot = unterkiefer(s, ip(UNTERSCHNABEL, 1, s))
+        path.append(schnabel_punkt(s, 0.5 * (top + bot))[:])
+        rad.append((ip(UNTERSCHNABEL, 3, s) * 0.7, 0.5 * (top - bot) + 1.0))
+    V, F = loft(path, rad, K=20, tips=(0, 1.5), up=h[:])
+    beak.add(V, F)
+    # Zunge: liegt in der Rinne des Unterschnabels, Spitze leicht angehoben
+    path, rad = [], []
+    for s in np.linspace(4, 28, 12):
+        k = (s - 4) / 24
+        lo_top = ip(UNTERSCHNABEL, 1, s)
+        lo_bot = ip(UNTERSCHNABEL, 2, s)
+        ry = (lo_top - lo_bot) / 1.3
+        ss, hh = unterkiefer(s, lo_top - 0.4 * ry - 0.1 + 0.6 * k ** 2)
+        path.append(schnabel_punkt(ss, hh)[:])
+        rad.append((lerp(2.8, 0.9, k), lerp(1.5, 0.7, k)))
+    V, F = loft(path, rad, K=20, tips=(0, 1.8), up=h[:])
     beak.add(V, F)
     beak_ob = beak.build("Schnabel", c_det, m_beak)
     set_smooth(beak_ob, angle=math.radians(60))
+    return beak_ob
 
-    # Augen
+
+def kopf_feder(det, bvh, inner, direction, flow, L, W, lift=0.0, embed=1.0, roll=0.0, **kw):
+    """Wie surface_feather, aber ohne Zufall (sauber, symmetrisch)."""
+    p, n = on_surface(bvh, inner, direction, embed)
+    if p is None:
+        return None
+    flow = Vector(flow)
+    tang = flow - n * flow.dot(n)
+    if tang.length < 1e-6:
+        return None
+    tang.normalize()
+    D = tang * math.cos(lift) + n * math.sin(lift)
+    V, F = feather(L, W, **kw)
+    V[:, 2] *= 1.0 - 0.75 * np.clip(V[:, 0] / L, 0, 1) ** 1.6     # Spitze auch in der Dicke scharf
+    V = place(V, p, D, n, roll=roll)
+    if in_sperrzone(V):
+        return None
+    return V, F
+
+
+def build_augen(outer_bvh, det, c_det, m_eye, m_pupil):
+    """Rote Augen (flache Linse unter der Braue), Pupillen, böse Brauen, Unterlid.
+    Gebaut für die linke Kopfseite (+X) und gespiegelt."""
     eye_acc, pupil_acc = Acc(), Acc()
-    for sx in (1, -1):
-        dirv = Vector((sx * 1.0, -0.62, 0.32)).normalized()
-        p, n = on_surface(outer_bvh, (0, -80, 92), dirv, embed=0.0)
-        r_eye = 5.2
-        ec = p - n * 3.4                     # Auge steht ~1.8 mm vor
-        V, F = ellipsoid(ec[:], (r_eye, r_eye, r_eye), K=32, rings=16)
-        eye_acc.add(V, F)
-        Vp, Fp = ellipsoid((0, 0, 0), (2.0, 2.0, 0.8), K=20, rings=10)
-        e_1, e_2, e_3 = basis_from_axis(n)
-        pupil_acc.add(frame_to_world(Vp, ec + n * (r_eye - 0.5), e_1, e_2, e_3), Fp)
-        fwd = Vector((0, -1, 0))
-        fwd = (fwd - n * fwd.dot(n)).normalized()
-        upv = n.cross(fwd).normalized() * sx * -1
-        if upv.z < 0:
-            upv = -upv
+    dirv = Vector((1.0, -0.35, 0.08)).normalized()
+    p, n = on_surface(outer_bvh, (0, -84, 95), dirv, embed=0.0)
+    fwd = Vector((0, -1, -0.15))
+    fwd = (fwd - n * fwd.dot(n)).normalized()      # zum Schnabel
+    dnv = n.cross(fwd).normalized()                # nach unten (rechtshändig: fwd, dnv, n)
+    upv = -dnv
+    RF, RU, RN, TIEF = 6.6, 5.5, 3.1, 1.6
+    ec = p - n * TIEF
+    V, F = ellipsoid((0, 0, 0), (RF, RU, RN), K=40, rings=20)
+    Ve = frame_to_world(V, ec, fwd, dnv, n)
+    eye_acc.add(Ve, F)
+    eye_acc.add_mirrored(Ve, F)
+    # Pupille: kleine, fast bündige dunkle Scheibe, nach vorne unter die Braue versetzt
+    pf, pu = 1.8, 0.4
+    pz = RN * math.sqrt(max(0.0, 1 - (pf / RF) ** 2 - (pu / RU) ** 2)) - 0.3
+    Vp, Fp = ellipsoid((0, 0, 0), (0.8, 1.0, 0.4), K=20, rings=10)
+    Vp = frame_to_world(Vp, ec + fwd * pf + upv * pu + n * pz, fwd, dnv, n)
+    pupil_acc.add(Vp, Fp)
+    pupil_acc.add_mirrored(Vp, Fp)
 
-        def snap(pt, lift):
-            loc, nrm = outer_bvh.find_nearest(pt)[:2]
-            return (loc + nrm.normalized() * lift)[:]
+    def snap(pt, lift):
+        lc, nrm = outer_bvh.find_nearest(Vector(pt))[:2]
+        return (lc + nrm.normalized() * lift)[:]
 
-        # böse Braue: Wulst über dem Auge, schräg nach vorne-unten zum Schnabel
-        brow = [snap(ec + upv * 6.2 - fwd * 8.0, 0.5), snap(ec + upv * 5.0 - fwd * 3.0, 1.6),
-                snap(ec + upv * 4.0 + fwd * 1.5, 2.3), snap(ec + upv * 2.4 + fwd * 5.5, 1.8),
-                snap(ec + upv * 0.6 + fwd * 9.0, 0.6)]
-        brow, br = resample(brow, [(1.4, 1.8), (2.0, 2.4), (2.2, 2.4), (1.8, 1.9), (0.9, 1.0)], 16)
-        V, F = loft(brow, br, K=14, tips=(1.0, 1.2), up=n[:])
-        det.add(V, F)
-        # Unterlid
-        lid = [snap(ec - upv * 5.0 - fwd * 4.5, 0.6), snap(ec - upv * 5.6, 1.0), snap(ec - upv * 4.6 + fwd * 4.5, 0.6)]
-        lid, lr = resample(lid, [0.8, 1.1, 0.8], 10)
-        V, F = loft(lid, lr, K=10, tips=(0.8, 0.8), up=n[:])
-        det.add(V, F)
-    eye_ob = eye_acc.build("Augen", c_det, m_eye)
-    pupil_ob = pupil_acc.build("Pupillen", c_det, m_pupil)
+    # Braue: schwerer Wulst mit steiler Kante über dem Auge, zur Stirn flach auslaufend.
+    # (f, u, Abheben, Breite, Höhe) in Augenkoordinaten; Breite = Mitte bis Augenkante
+    bp = [(-6.5, 4.6, -0.7, 1.4, 0.7), (-3.0, 4.3, 0.0, 2.0, 1.0), (0.5, 3.4, 0.3, 2.2, 1.3),
+          (4.0, 2.0, 0.35, 2.1, 1.2), (7.5, 0.6, 0.1, 1.8, 0.9), (10.5, -0.6, -0.4, 1.3, 0.6),
+          (13.0, -1.3, -0.9, 0.9, 0.4)]
+    path0 = [snap(ec + fwd * fb + upv * ub, lb) for fb, ub, lb, wb, hb in bp]
+    path, br = resample(path0, [(wb, hb) for fb, ub, lb, wb, hb in bp], 36)
+    _, bl = resample(path0, [lb for fb, ub, lb, wb, hb in bp], 36)
+    tt = np.linspace(0, 1, len(path))
 
-    # Nasenborsten über dem Schnabelansatz
-    for i in range(11):
-        f = i / 10
-        a = lerp(-1.0, 1.0, f)
-        dirv = Vector((math.sin(a) * 0.9, -1.0, 0.8 + 0.2 * math.cos(a))).normalized()
-        surface_feather(det, outer_bvh, (0, -80, 90), dirv, (0, -1, -0.35), 10 - 3 * abs(a), 4.0,
-                        lift=0.0, embed=0.6, th=0.9, point=0.8, taper=0.3, bend=0.10, cup=0.15, rachis=0.4)
+    # Querschnitt: +X zeigt im Loft (n x Tangente) nach unten zum Auge. Zum Auge hin steile
+    # Kante, zur Stirn läuft der Wulst tangential in die (gekrümmte) Haut aus.
+    R_KOPF, X_STIRN = 20.0, 2.8
 
-    # Kopf: kleine schuppige Federn
-    for ring, ang_el in enumerate(np.linspace(-15, 65, 6)):
-        nring = 16 - ring
-        for k in range(nring):
-            yaw = lerp(-115, 115, (k + 0.5 * (ring % 2)) / nring)
-            if abs(yaw) < 40 and ang_el < 30:
+    def brow_shape(a, t):
+        lift = float(np.interp(t, tt, bl))
+        rx = float(np.interp(t, tt, [r[0] for r in br]))
+        ry = float(np.interp(t, tt, [r[1] for r in br]))
+        dmax = X_STIRN * rx
+        y_bot = (-lift - 1.0 - dmax ** 2 / (2 * R_KOPF)) / ry - 0.3
+        if a <= math.pi:
+            x = 1.0 - (1.0 + X_STIRN) * a / math.pi
+            if x >= 0:
+                y_e = (-lift - 1.0) / ry
+                return x, y_e + (1 - y_e) * math.sqrt(max(0.0, 1 - x ** 2.5))
+            d = -x * rx
+            g = math.cos(0.5 * math.pi * d / dmax) ** 2
+            return x, (-d * d / (2 * R_KOPF) + (lift + ry) * g - 0.3 * (1 - g) - lift) / ry
+        x = -X_STIRN + (1.0 + X_STIRN) * (a - math.pi) / math.pi
+        return x, y_bot
+
+    KB = 36
+    V, F = loft(path, br, K=KB, shape=brow_shape, tips=(0.6, 0.6), up=n[:])
+    # Stirnseite exakt auf die echte Haut legen (tangentialer Übergang ohne Kante)
+    for i, t in enumerate(tt):
+        lift = bl[i]
+        rx, ry = br[i]
+        dmax = X_STIRN * rx
+        for k in range(KB):
+            a = 2 * math.pi * k / KB
+            x, _ = brow_shape(a, t)
+            if x >= 0:
                 continue
-            el, yw = math.radians(ang_el), math.radians(yaw)
-            dirv = Vector((math.sin(yw) * math.cos(el), -math.cos(yw) * math.cos(el) * 0.3 + 0.25, math.sin(el)))
-            if dirv.length < 1e-3:
+            d = -x * rx
+            g = math.cos(0.5 * math.pi * min(d / dmax, 1.0)) ** 2
+            hz = (lift + ry) * g - 0.3 * (1 - g) if a <= math.pi else -1.5
+            w = float(smoothstep(0.0, 0.6, -x))
+            lc, nrm = outer_bvh.find_nearest(Vector(V[i * KB + k]))[:2]
+            V[i * KB + k] = (1 - w) * V[i * KB + k] + w * np.array((lc + nrm.normalized() * hz)[:])
+    det.add(V, F)
+    det.add_mirrored(V, F)
+    # Unterlid: dünner Rand um die untere Augenhälfte
+    lid = []
+    for a in np.linspace(math.radians(190), math.radians(350), 9):
+        lid.append(snap(ec + fwd * (RF * 0.86 * math.cos(a)) + upv * (RU * 0.86 * math.sin(a)), 0.1))
+    lid, lr = resample(lid, [0.45, 0.6, 0.7, 0.7, 0.7, 0.7, 0.7, 0.6, 0.45], 24)
+    V, F = loft(lid, lr, K=10, tips=(0.4, 0.4), up=n[:])
+    det.add(V, F)
+    det.add_mirrored(V, F)
+    return eye_acc.build("Augen", c_det, m_eye), pupil_acc.build("Pupillen", c_det, m_pupil)
+
+
+def build_halskrause(outer_bvh, det):
+    """Federband am Übergang Kopf/Hals: oben kurze Stacheln (Nackenkamm), seitlich schmale,
+    spitze Hackles nach hinten, an der Kehle flach anliegende Krausenfedern.
+    Symmetrisch und ohne Zufall."""
+    nhalb = 12
+    for ri in range(3):
+        for k in range(nhalb + 1):
+            phi = math.pi * (k + 0.5 * (ri % 2)) / nhalb
+            if phi > math.pi + 1e-6:
                 continue
-            surface_feather(det, outer_bvh, (0, -70, 90), dirv, (0, 1, -0.25), RNG.uniform(7.5, 9.5), 6.5,
-                            lift=0.07, embed=0.7, th=1.0, point=0.35, taper=0.45, bend=0.12, cup=0.2,
-                            rachis=0.25)
-    # Halskrause (Hackles) – spitze, abstehende Federn
-    rows = np.linspace(-70, -38, 8)
-    for ri, y in enumerate(rows):
-        nrow = 22
-        for k in range(nrow):
-            phi = 2 * math.pi * (k + 0.5 * (ri % 2)) / nrow + RNG.uniform(-0.08, 0.08)
+            u = (1 - math.cos(phi)) / 2               # 0 = Nacken, 1 = Kehle
+            if ri == 2 and u < 0.1:
+                continue                              # Nackenkamm: nur zwei Reihen
+            y = lerp(-57, -86, u ** 0.8) + 6.5 * ri
             dirv = Vector((math.sin(phi), 0.0, math.cos(phi)))
-            down = -math.cos(phi)  # 1 = Kehle
-            throat = max(0.0, down)
-            L = lerp(11, 21, throat) * lerp(1.0, 0.85, ri / 7) + RNG.uniform(-1.5, 1.5)
-            if y < -62 and math.cos(phi) > 0.2:
-                continue  # Oberkopf frei lassen
-            flow = Vector((0, 1.0, -0.35 - 0.9 * throat))
-            surface_feather(det, outer_bvh, (0, y, 84), dirv, flow, L, lerp(5.5, 7, throat),
-                            lift=math.radians(lerp(16, 30, throat) + RNG.uniform(-5, 5)), embed=1.0,
-                            th=1.3, point=0.85, taper=0.25, bend=-0.02, cup=0.05, rachis=0.5,
-                            notches=RNG.choice((0, 0, 1)), jag=0.1)
+            var = 1 + 0.07 * math.sin(3.7 * k + 1.3 * ri)
+            L = lerp(10.5, 16.5, u ** 0.6) * var * (1.0 - 0.04 * ri)
+            W = lerp(6.8, 7.0, u)
+            lift = math.radians(lerp(30, 10, u ** 0.7))
+            flow = (0, 1.0, lerp(0.4, -1.3, u))
+            res = kopf_feder(det, outer_bvh, (0, y, 88), dirv, flow, L, W, lift=lift, embed=1.0,
+                             th=lerp(2.2, 1.7, u), point=0.95, taper=lerp(0.1, 0.18, u),
+                             bend=lerp(-0.05, 0.04, u), cup=0.12, rachis=0.6)
+            if res is None:
+                continue
+            V, F = res
+            det.add(V, F)
+            if 1e-6 < phi < math.pi - 1e-6:
+                det.add_mirrored(V, F)
+
+
+def build_kopf(outer_bvh, det, c_det, m_beak, m_eye, m_pupil):
+    """Schnabel, Augen, Brauen, Unterlider, Halskrause.
+    Federn kommen in den Sammler det; Rückgabe: (Schnabel, Augen, Pupillen)."""
+    beak_ob = build_schnabel(c_det, m_beak)
+    eye_ob, pupil_ob = build_augen(outer_bvh, det, c_det, m_eye, m_pupil)
+    build_halskrause(outer_bvh, det)
+    # Gesicht (Schnabelansatz, Wangen unter den Augen, Kinn) bleibt glatt: Sperrzone für alle
+    # danach aufgesetzten Federn (Achse nach vorne ab y = -82)
+    SPERRZONEN.append((Vector((0, -82, 86)), Vector((0, -1, 0)), 24.0, 0.0, 120.0))
     return beak_ob, eye_ob, pupil_ob
 # <<< TEIL kopf
 
 
 # >>> TEIL koerperfedern
+def koerper_feder_an(acc, P, n, flow, L, W, lift=0.05, roll=0.0, **kw):
+    """Legt eine Feder bei P (Normale n) entlang flow auf die Oberfläche – ohne Zufallsrolle,
+    damit die Reihe ruhig und regelmäßig wirkt. Gibt False zurück, wenn sie im Sperrbereich läge."""
+    flow = Vector(flow)
+    tang = flow - n * flow.dot(n)
+    if tang.length < 1e-6:
+        return False
+    tang.normalize()
+    D = tang * math.cos(lift) + n * math.sin(lift)
+    V, F = feather(L, W, **kw)
+    V = place(V, P, D, n, roll=roll)
+    if in_sperrzone(V):
+        return False
+    acc.add(V, F)
+    return True
+
+
+def koerper_von_innen(bvh, origin, direction, embed=1.0, maxdist=18.0):
+    """Strahl aus dem (massiven) Körperinneren nach außen: Austrittspunkt (leicht eingesenkt)
+    und Normale – oder (None, None), wenn der Strahl zu weit läuft (z. B. ins andere Bein)."""
+    d = Vector(direction).normalized()
+    hit = bvh.ray_cast(Vector(origin), d)
+    if hit[0] is None or (hit[0] - Vector(origin)).length > maxdist:
+        return None, None
+    n = hit[1].normalized()
+    if n.dot(d) < 0.2:
+        return None, None
+    return hit[0] - n * embed, n
+
+
 def build_koerperfedern(outer_bvh, det):
-    """Brust-, Oberschenkel- und Schulterfedern (in den Sammler det)."""
-    # Brust
-    for ri, el in enumerate(np.linspace(8, -55, 7)):
-        n = 11 - abs(ri - 3)
-        for k in range(n):
-            yaw = lerp(-62, 62, (k + 0.5 * (ri % 2)) / max(n - 1, 1)) + RNG.uniform(-4, 4)
-            e, yw = math.radians(el), math.radians(yaw)
-            dirv = Vector((math.sin(yw) * math.cos(e), -math.cos(yw) * math.cos(e), math.sin(e)))
-            surface_feather(det, outer_bvh, (0, -24, 76), dirv, (0, 0.55, -1.0), RNG.uniform(13, 16), 10,
-                            lift=math.radians(9), embed=0.9, th=1.2, point=0.3, taper=0.45, bend=0.10,
-                            cup=0.2, rachis=0.3, jag=0.1)
-    # Oberschenkel
+    """Oberschenkel-Saum (in den Sammler det). Brust, Bauch, Flanken und Schultern bleiben glatt
+    wie bei der Vorlage – am Vorderkörper sorgt nur die Halskrause des Kopfes für Struktur.
+    Die "Hosen" enden in einem kurzen, gleichmäßig gezackten Saum um den Lauf."""
+    hx, hy, hz = HOSEN_MITTE
     for sx in (1, -1):
-        for ri, z in enumerate((60, 52, 46)):
-            for k in range(9):
-                phi = 2 * math.pi * (k + 0.5 * ri) / 9
-                dirv = Vector((math.cos(phi), math.sin(phi), -0.15)).normalized()
-                surface_feather(det, outer_bvh, (sx * 14, -6, z), dirv, (0, 0.2, -1), RNG.uniform(10, 13), 7,
-                                lift=math.radians(14), embed=0.9, th=1.2, point=0.6, taper=0.35,
-                                bend=0.04, cup=0.1, jag=0.1)
-    # Schulterbereich (Übergang Flügel)
-    for sx in (1, -1):
-        for ri in range(3):
-            for k in range(7):
-                yaw = lerp(-30, 40, k / 6) + ri * 4
-                el = 40 - ri * 12
-                yw, e = math.radians(yaw), math.radians(el)
-                dirv = Vector((sx * math.cos(e) * math.cos(yw), math.sin(yw) * math.cos(e) - 0.3, math.sin(e)))
-                surface_feather(det, outer_bvh, (sx * 10, -22, 90), dirv, (sx * 0.3, 1, -0.2),
-                                RNG.uniform(12, 15), 9, lift=math.radians(8), embed=0.9, th=1.2, point=0.4,
-                                taper=0.45, bend=0.1, cup=0.2, jag=0.1)
+        for k in range(12):
+            psi = math.radians(lerp(-155.0, 155.0, k / 11.0))     # 0 = außen, -90 = vorne
+            dirv = Vector((sx * math.cos(psi), -math.sin(psi), -0.55))
+            P, nrm = koerper_von_innen(outer_bvh, (sx * hx, hy, hz - 3.0), dirv, embed=1.1)
+            if P is None:
+                continue
+            L = 10.5 - 1.2 * abs(math.cos(psi))                   # vorne/hinten etwas länger
+            koerper_feder_an(det, P, nrm, (sx * 0.05, 0.25, -1.0), L, 7.5, lift=math.radians(10),
+                             th=1.2, point=0.38, taper=0.45, bend=0.05, cup=0.16, rachis=0.35)
 # <<< TEIL koerperfedern
 
 
 # >>> TEIL schwanz
+SCHWANZ_N = 9            # Steuerfedern (ungerade: eine Mittelfeder liegt oben)
+SCHWANZ_FAECHER = 34.0   # Gesamt-Spreizung des Fächers in Grad
+SCHWANZ_STUFE = 0.6      # jede Feder nach außen liegt so viel tiefer (saubere Überlappung)
+SCHWANZ_TIEFE = 2.8      # Ansatz liegt so weit unter der Rückenoberfläche
+
+
+def _richtung(yaw_deg, pitch_deg):
+    """Einheitsvektor nach hinten (+Y), yaw > 0 nach +X, pitch > 0 nach oben."""
+    a, p = math.radians(yaw_deg), math.radians(pitch_deg)
+    return Vector((math.sin(a) * math.cos(p), math.cos(a) * math.cos(p), math.sin(p)))
+
+
 def build_schwanz(outer_bvh, c_det, m_body):
-    """Schwanzfächer mit Oberschwanzdecken am Bürzel."""
+    """Schmaler, keilförmiger Schwanz, der die Rückenlinie fast waagrecht fortsetzt,
+    plus Oberschwanzdecken über der Ansatznaht. Glatte, gestufte Federn ohne Ausfransung."""
     tail = Acc()
     th_hit = outer_bvh.ray_cast(Vector((0, 300, 84)), Vector((0, -1, 0)))
-    troot = th_hit[0] + Vector((0, -10, 0.5))
-    nt = 12
-    for i in range(nt):
-        f = i / (nt - 1) - 0.5
-        ang = f * 58
-        a = math.radians(ang)
-        pitch = math.radians(-22 - 4 * abs(f))
-        D = Vector((math.sin(a) * math.cos(pitch), math.cos(a) * math.cos(pitch), math.sin(pitch)))
-        L = 58 - 14 * (2 * abs(f)) ** 1.5
-        P = troot + Vector((f * 22, 0, -abs(f) * 2.0 + (0.5 - abs(f)) * 2.2))
-        V, F = feather(L, 18, th=1.7, taper=0.62, bend=0.03, cup=0.12, notches=1, jag=0.06, barbs=0.35)
-        tail.add(place(V, P, D, (0, -math.sin(pitch) * 0.3, 1), roll=f * 0.3), F)
-    for i in range(7):
-        f = i / 6 - 0.5
-        a = math.radians(f * 50)
-        pitch = math.radians(-16)
-        D = Vector((math.sin(a) * math.cos(pitch), math.cos(a) * math.cos(pitch), math.sin(pitch)))
-        P = troot + Vector((f * 16, -8, 4.5 - abs(f) * 2))
-        V, F = feather(30, 13, th=1.4, taper=0.5, point=0.2, bend=0.06, cup=0.15, jag=0.08)
-        tail.add(place(V, P, D, (0, 0, 1), roll=f * 0.2), F)
+    troot = th_hit[0] + Vector((0, -14, 3.5))      # Ansatz steckt im Bürzel
+    oben = outer_bvh.ray_cast(Vector((0, troot.y, 300)), Vector((0, 0, -1)))[0]
+    if oben is not None:                           # knapp unter der Rückenlinie: Schwanz setzt sie fort
+        troot.z = max(troot.z, oben.z - SCHWANZ_TIEFE)
+    mid = (SCHWANZ_N - 1) / 2
+    for i in range(SCHWANZ_N):
+        f = i / (SCHWANZ_N - 1) - 0.5               # -0.5 .. 0.5
+        stufe = abs(i - mid)                        # 0 = Mittelfeder (oben)
+        L = 64 - 18 * (2 * abs(f)) ** 1.3           # Keilform: Mitte am längsten
+        D = _richtung(f * SCHWANZ_FAECHER, -6 - 4 * abs(f))
+        P = troot + Vector((f * 14, 0.6 * stufe, -SCHWANZ_STUFE * stufe))
+        V, F = feather(L, 20, th=2.0, point=0.12, taper=0.55, bend=0.025, cup=0.06, rachis=0.4,
+                       notches=0, jag=0.0, barbs=0.0)
+        tail.add(place(V, P, D, (0, 0, 1), roll=f * 0.12), F)
+    # Oberschwanzdecken: breit, rund, ohne Zufallsrollen – decken die Naht Körper/Schwanz
+    nc = 5
+    cmid = (nc - 1) / 2
+    for i in range(nc):
+        f = i / (nc - 1) - 0.5
+        stufe = abs(i - cmid)
+        D = _richtung(f * 26, -9)
+        P = troot + Vector((f * 12, -5.0 + 1.5 * stufe, 3.0 - 0.45 * stufe))
+        V, F = feather(33 - 3.0 * stufe, 13, th=1.5, point=0.12, taper=0.5, bend=0.05, cup=0.08, rachis=0.4)
+        tail.add(place(V, P, D, (0, 0, 1)), F)
     tail_ob = tail.build("Schwanz", c_det, m_body)
     return tail_ob
 # <<< TEIL schwanz
 
 
 # >>> TEIL beine
+SOCKEL_R = 50.0          # Sockelradius (Ø 100 mm), schlichte Scheibe mit kleiner Fase
+SOCKEL_H = 6.2           # Sockelhöhe
+SOCKEL_Y = -9.0          # Sockelmitte (Y) unter den Füßen
+EINSINKEN = 0.3          # Zehen/Krallen sinken so weit in den Sockel ein (druckt verbunden)
+FUSS_YAW = 6.0           # Füße leicht nach außen gedreht (Grad)
+
+
+def _ss(e0, e1, x):
+    return float(smoothstep(e0, e1, x))
+
+
+def _saege(u, kante=0.86):
+    """Sägezahn 0..1 für überlappende Schuppen: steigt langsam an, fällt an der Unterkante steil ab."""
+    ph = u % 1.0
+    return (ph / kante) ** 1.4 if ph < kante else (1.0 - ph) / (1.0 - kante)
+
+
+def _lauf(top, foot):
+    """Lauf (Tarsometatarsus): oben kräftig, vorne überlappende rechteckige Hornschilde, Seiten glatt."""
+    n = 150
+    ts = np.linspace(0, 1, n)
+    path, radii = [], []
+    bow = Vector((0, -1.2, 0))                   # ganz leicht nach vorne gewölbt
+    ende = foot + (foot - top).normalized() * 1.6   # rundes Fußgelenk reicht etwas unter den Fußpunkt
+    te = 0.9                                     # ab hier läuft der Lauf in eine Kugel aus
+    for t in ts:
+        path.append((top.lerp(ende, t) + bow * math.sin(math.pi * t))[:])
+        r = lerp(6.1, 4.8, _ss(0.0, 0.75, t)) + 0.35 * _ss(0.8, te, t)
+        if t > te:                               # Kugelende statt Kappe -> kein Absatz am Gelenk
+            r *= math.sqrt(max(1.0 - ((t - te) / (1.0 - te)) ** 2, 0.0)) ** 0.8
+        radii.append((max(r, 0.05), max(r, 0.05) * 1.12))
+    n_pl, t0, t1 = 8, 0.2, 0.84                  # Schilde im sichtbaren Bereich
+
+    def shape(a, t):
+        c, s = math.cos(a), math.sin(a)          # a = 90° zeigt nach vorne (up = -Y)
+        d = abs(math.atan2(c, s))                # Winkel zur Vorderseite
+        m = 1.0 - _ss(math.radians(46), math.radians(60), d)
+        u = (t - t0) / (t1 - t0)
+        k = 0.0
+        if 0.0 <= u < 1.0:
+            k = _saege(u * n_pl) * (1.0 - 0.25 * u)
+        f = (1.0 - 0.05 * m) + 0.085 * m * k     # Vorderseite leicht abgeflacht, Schilde stehen vor
+        return c * f, s * f
+    return loft(path, radii, K=36, shape=shape, tips=(1.0, 0.0), up=(0, -1, 0))
+
+
+def _zehe(foot, dvec, L, r0, nseg, base_top):
+    """Kräftige Zehe: Gelenkpolster, feine Querschuppen oben, flache Sohle, Ballen vor der Kralle,
+    jedes Glied leicht gewölbt. Liefert (V, F), Endpunkt, Endradius."""
+    n = 96
+    ts = np.linspace(0, 1, n)
+    gelenke = [k / nseg for k in range(1, nseg)] + [0.9]
+    rings = nseg * 4
+    pts, rr = [], []
+    for t in ts:
+        joint = max(math.exp(-((t - g) / 0.07) ** 2) for g in gelenke[:-1]) if nseg > 1 else 0.0
+        pad = math.exp(-((t - 0.9) / 0.06) ** 2)
+        r = r0 * lerp(1.0, 0.78, t) * (1 + 0.12 * joint + 0.13 * pad)
+        rx, ry = r * 1.05, r * 0.92
+        # Bodenkontakt an Gelenken und Ballen, dazwischen Glieder leicht gewölbt
+        kontakt = max(math.exp(-((t - g) / 0.08) ** 2) for g in gelenke)
+        arch = 0.7 * (1.0 - kontakt) * _ss(0.12, 0.3, t)
+        zg = base_top - EINSINKEN + 0.8 * ry + arch
+        z = lerp(foot.z, zg, _ss(0.0, 0.3, t))
+        p = Vector((foot.x, foot.y, 0.0)) + dvec * (L * t)
+        p.z = max(z, zg)
+        pts.append(p[:])
+        rr.append((rx, ry))
+
+    def shape(a, t):
+        c, s = math.cos(a), math.sin(a)          # a = 90° oben
+        if s < 0:                                # flache, etwas breitere Sohle
+            return c * (1 + 0.08 * -s), s * 0.8
+        k = _saege(t * rings + 0.3) * _ss(0.15, 0.5, s) * _ss(0.05, 0.12, t) * (1 - _ss(0.93, 0.99, t))
+        f = 1.0 + 0.055 * k
+        return c * f, s * f
+    V, F = loft(pts, rr, K=20, shape=shape, tips=(0.5, 1.2), up=(0, 0, 1))
+    return V, F, Vector(pts[-1]), rr[-1]
+
+
+def _kralle(e, dvec, base_top, length=9.5):
+    """Dicke, stark nach unten gekrümmte Kralle; die Spitze sitzt auf dem Sockel."""
+    n = 30
+    ts = np.linspace(0, 1, n)
+    r_tip = (0.35, 0.4)
+    z_tip = base_top - EINSINKEN + r_tip[1] * 0.85
+    rise = lambda t: 1.2 * math.sin(math.pi * t * 0.6)
+    drop = e.z + rise(1.0) - z_tip
+    pts, rr = [], []
+    for t in ts:
+        w = t ** 0.85
+        rx, ry = lerp(2.5, r_tip[0], w), lerp(2.8, r_tip[1], w)
+        p = e + dvec * (length * t * (1 - 0.18 * t * t))   # Spitze krümmt sich steil nach unten
+        p.z = e.z + rise(t) - drop * t ** 1.8
+        p.z = max(p.z, base_top - EINSINKEN + 0.85 * ry)
+        pts.append(p[:])
+        rr.append((rx, ry))
+
+    def shape(a, t):
+        c, s = math.cos(a), math.sin(a)
+        if s > 0:                                # schmaler First oben
+            return c * (1 - 0.35 * s * s), s
+        return c, s * 0.85
+    return loft(pts, rr, K=16, shape=shape, tips=(0.0, 0.25), up=(0, 0, 1))
+
+
 def build_beine(c_det, m_leg):
-    """Läufe, Zehen und Krallen (Sockel-Oberseite liegt beim Aufbau bei SOCKEL_Z + 7.2)."""
+    """Läufe, Zehen und Krallen (Sockel-Oberseite liegt beim Aufbau bei SOCKEL_Z + SOCKEL_H)."""
     legs = Acc()
-    for sx in (1, -1):
-        top = Vector((sx * 14.5, -4.0, 50.0))
-        foot = Vector((sx * 16.5, -12.0, SOCKEL_Z + 11.0))
-        path = [top.lerp(foot, t)[:] for t in np.linspace(0, 1, 30)]
-        radii = []
-        for t in np.linspace(0, 1, 30):
-            r = lerp(4.6, 3.8, t) * (1 + 0.07 * math.cos(2 * math.pi * t * 11) ** 2)
-            radii.append((r, r * 1.08))
-        V, F = loft(path, radii, K=18, tips=(1.0, 1.0))
+    base_top = SOCKEL_Z + SOCKEL_H
+    top = Vector((14.5, -4.0, 50.0))                 # steckt im Oberschenkel
+    foot = Vector((19.5, -13.0, base_top + 4.4))     # leicht nach außen und vorne gestellt
+    parts = [_lauf(top, foot)]
+    yaw = math.radians(FUSS_YAW)
+    toes = [(-30, 26.0, 3.75, 3), (0, 30.0, 4.0, 3), (28, 24.0, 3.6, 3), (180, 19.0, 3.6, 2)]
+    for ang, L, r0, nseg in toes:
+        if ang == 180:
+            dvec = Vector((-0.08, 1.0, 0.0)).normalized()
+        else:
+            a = yaw + math.radians(ang)              # positiv = nach außen
+            dvec = Vector((math.sin(a), -math.cos(a), 0.0))
+        V, F, e, re = _zehe(foot, dvec, L, r0, nseg, base_top)
+        parts.append((V, F))
+        parts.append(_kralle(e - dvec * 1.8, dvec, base_top, length=10.0 if ang != 180 else 9.0))
+    for V, F in parts:                               # linker Fuß + gespiegelter rechter Fuß
         legs.add(V, F)
-        # Zehen
-        toes = [(-26, 30.0, 2.7), (0, 34.0, 2.9), (26, 27.0, 2.6), (180, 20.0, 2.7)]
-        for ang, L, r0 in toes:
-            if ang == 180:
-                dvec = Vector((sx * 0.15, 1.0, 0.0)).normalized()
-            else:
-                a = math.radians(ang)  # positiv = nach außen
-                dvec = Vector((sx * math.sin(a), -math.cos(a), 0.0))
-            pts, rr = [], []
-            nseg = 3 if ang != 180 else 2
-            for t in np.linspace(0, 1, 26):
-                p = foot + dvec * (L * t) + Vector((0, 0, lerp(0.0, -1.6, smoothstep(0, 0.35, t))))
-                p.z = max(p.z, SOCKEL_Z + 9.0)
-                pts.append(p[:])
-                bump = math.cos(math.pi * t * nseg) ** 2
-                rr.append((r0 * lerp(1.0, 0.72, t) * (1 + 0.12 * bump), r0 * lerp(1.0, 0.72, t) * (0.9 + 0.1 * bump)))
-            V, F = loft(pts, rr, K=14, tips=(0.5, 1.0))
-            legs.add(V, F)
-            # Kralle
-            e = Vector(pts[-1]) + dvec * 1.2
-            cl = [e + dvec * (8.5 * t) + Vector((0, 0, 1.0 * math.sin(math.pi * t * 0.6) - 3.6 * t ** 2.2))
-                  for t in np.linspace(0, 1, 12)]
-            cr = [(lerp(2.0, 0.3, t), lerp(2.2, 0.35, t)) for t in np.linspace(0, 1, 12)]
-            V, F = loft([c[:] for c in cl], cr, K=10, tips=(0.4, 0.3))
-            legs.add(V, F)
+        legs.add_mirrored(V, F)
     legs_ob = legs.build("Beine", c_det, m_leg)
     return legs_ob
 
 
 def build_sockel(c_det, m_body):
-    """Runder Sockel."""
-    V, F = lathe([(0, 0), (56.5, 0), (58.0, 1.2), (58.5, 3.0), (58.5, 5.0), (57.5, 6.6), (56.0, 7.2), (0, 7.2)], K=160)
-    V = V + np.array([0, -6.0, SOCKEL_Z])
+    """Schlichte runde Scheibe mit scharfer Oberkante und kleiner Fase."""
+    R, H = SOCKEL_R, SOCKEL_H
+    V, F = lathe([(0, 0), (R - 0.6, 0), (R, 0.6), (R, H - 0.8), (R - 0.8, H), (0, H)], K=220)
+    V = V + np.array([0, SOCKEL_Y, SOCKEL_Z])
     base = make_object("Sockel", V, F, c_det, m_body)
     set_smooth(base, angle=math.radians(30))
     return base
@@ -1111,7 +1565,8 @@ def build():
     c_help.hide_render = True
 
     m_body = material("Kraehe_Schwarz", (0.020, 0.020, 0.022), rough=0.6, spec=0.2)
-    m_beak = material("Kraehe_Schnabel", (0.014, 0.014, 0.015), rough=0.32, spec=0.45, coat=0.2)
+    m_beak = material("Kraehe_Schnabel", (0.014, 0.014, 0.015), rough=0.4, spec=0.4, coat=0.1)
+    m_leg = material("Kraehe_Beine", (0.016, 0.016, 0.018), rough=0.5, spec=0.3)
     m_eye = material("Kraehe_Auge", (0.85, 0.02, 0.01), rough=0.2, spec=0.6, emission=(1.0, 0.03, 0.01), strength=2.5)
     m_pupil = material("Kraehe_Pupille", (0.08, 0.0, 0.0), rough=0.15, spec=0.6)
 
@@ -1239,7 +1694,7 @@ def build():
     log("Schwanz")
     tail_ob = build_schwanz(outer_bvh, c_det, m_body)
     log("Beine, Füße, Sockel")
-    legs_ob = build_beine(c_det, m_beak)
+    legs_ob = build_beine(c_det, m_leg)
     base = build_sockel(c_det, m_body)
 
     det_ob = det.build("Federn_Details", c_det, m_body)
