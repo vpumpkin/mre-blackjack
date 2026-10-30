@@ -1,7 +1,9 @@
 # Krähen-Spardose für Blender
 
-Detaillierte Krähe mit ausgebreiteten Flügeln, roten Augen und geöffnetem Schnabel als Spardose.
-Oben auf dem Rücken sitzt der Münzschlitz, unten am Schwanz ein Schraubverschluss zum Leeren.
+Detaillierte Krähe mit ausgebreiteten Flügeln, böse funkelnden roten Augen und geöffnetem Schnabel
+als Spardose, im Stil eines sauber modellierten 3D-Druck-Modells (mattes Anthrazit, glatte Flächen,
+klare Federreihen). Oben auf dem Rücken sitzt der Münzschlitz, unten am Schwanz ein
+Schraubverschluss zum Leeren.
 
 ![Ansicht](vorschau/01_ansicht.png)
 
@@ -29,8 +31,8 @@ Titelbild (Cycles).
 Collections:
 
 - **Koerper**: hohler Körper mit Münzschlitz und Innengewinde
-- **Fluegel**: linker und rechter Flügel (jede Feder einzeln modelliert, mit Federästen)
-- **Details**: Schnabel, Augen, Pupillen, Halskrause, Brust-, Kopf- und Schenkelfedern, Schwanz, Beine, Sockel
+- **Fluegel**: linker und rechter Flügel (jede Feder einzeln modelliert, mit Schaftlinie, in gestaffelten Reihen)
+- **Details**: Schnabel, Augen, Pupillen, Nackenkamm, Halskrause und Kehlbart, Schenkelfedern, Schwanz, Beine, Sockel
 - **Schraubdeckel**: Deckel mit Außengewinde, Rändelrand, Griffsteg und Öffnen-Pfeil
 - **Kraehe_Szene**: Kamera, Licht, Boden (nur fürs Rendern)
 
@@ -50,6 +52,10 @@ Oben im Skript lassen sich u. a. einstellen:
 | `DACH_STEIGUNG` | 0.8 | Neigung der Innendecke (siehe Druckhinweise) |
 | `SEED` | 7 | Zufallswert für die Federvariation |
 
+Das Skript ist in Bauteil-Bereiche gegliedert, jeweils zwischen `# >>> TEIL <name>` und
+`# <<< TEIL <name>`: `koerperform`, `kopfform`, `kopf`, `koerperfedern`, `schlitz`, `fluegel`,
+`feder`, `schwanz`, `beine`. Gewinde, Hohlraum und Deckel stehen außerhalb davon in `build()`.
+
 Aus der Kommandozeile, inklusive STL-Export:
 
 ```bash
@@ -58,8 +64,10 @@ blender -b --python kraehe_spardose.py -- --blend kraehe_spardose.blend --stl st
 
 ## Technische Daten
 
-- Maße: Spannweite 334 mm, Länge (Schnabel bis Schwanz) 247 mm, Höhe 151 mm, Sockel Ø 117 mm
-- Innenvolumen ca. 124 ml (etwa 60–80 gemischte Münzen)
+- Maße: Spannweite 373 mm, Länge (Schnabel bis Schwanz) 276 mm, Höhe 146 mm, Sockel Ø 108 mm
+- Innenvolumen ca. 154 ml (etwa 80–100 gemischte Münzen)
+- Münzschlitz 34 × 5,5 mm längs auf dem Rücken, mit Fase
+- Schwerpunkt liegt 2,5 mm neben der Sockelmitte: steht stabil
 - Öffnung bei abgenommenem Deckel: Ø 30 mm (2-€-Münzen mit Ø 25,75 mm fallen durch)
 - Gewinde: eingängiges Rechtsgewinde, 3 mm Steigung, 1,4 mm Tiefe, 0,4 mm radiales und
   ca. 0,2 mm axiales Spiel, Einlauffasen an beiden Enden.
@@ -72,10 +80,12 @@ blender -b --python kraehe_spardose.py -- --blend kraehe_spardose.blend --stl st
 STL-Dateien im Zip:
 
 1. `01_Koerper_mit_Sockel.stl`: Körper, Kopf, Federn, Schwanz, Beine und Sockel. Aufrecht auf dem
-   Sockel drucken. Die Innendecke ist als Dach mit ca. 39° geformt und druckt ohne Stützen im
-   Inneren; außen brauchen Schnabel, Schwanz und Bauch Stützen (Baumstützen empfohlen).
+   Sockel drucken. Die Innendecke ist als Dach geformt (Flächen höchstens ca. 39° zur Waagrechten,
+   unter dem Schlitz eine kleine Tasche), damit innen keine Stützen nötig sind. Außen brauchen
+   Schnabel, Schwanz und Bauch Stützen (Baumstützen empfohlen).
 2. `02_Fluegel_links.stl` / `03_Fluegel_rechts.stl`: separat drucken und ankleben. Die Flügel enden
-   genau auf der Körperoberfläche und lassen sich daher passgenau ankleben.
+   genau auf der Körperoberfläche und lassen sich daher passgenau ankleben. Federränder laufen bis
+   auf ca. 0,5–0,8 mm aus; mit einer 0,4-mm-Düse drucken.
 3. `04_Schraubdeckel.stl`: liegt schon in Druckausrichtung (Becherrand unten). Unter dem Rand des
    Deckels sind Stützen nötig.
 4. `05_Augen_rot.stl`: für Mehrfarbdruck (rot) oder als Teil des Körpers mitdrucken.
