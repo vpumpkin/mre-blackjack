@@ -19,7 +19,7 @@ public:
 	uint8 bWantsToSprint : 1;
 
 	UFUNCTION(BlueprintPure, Category = "Manhunt|Movement") bool IsSprinting() const;
-	UFUNCTION(BlueprintPure, Category = "Manhunt|Movement") TEnumAsByte<EPhysicalSurface> GetCurrentSurface() const { return CurrentSurface; }
+	UFUNCTION(BlueprintPure, Category = "Manhunt|Movement") EPhysicalSurface GetCurrentSurface() const { return CurrentSurface; }
 
 	virtual float GetMaxSpeed() const override;
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;

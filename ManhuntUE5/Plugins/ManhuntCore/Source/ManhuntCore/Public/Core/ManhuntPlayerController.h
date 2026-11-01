@@ -44,7 +44,7 @@ public:
 	float GetLastPingTime() const { return LastPingTime; }
 	const TArray<FManhuntHudMessage>& GetMessages() const { return Messages; }
 	bool IsTabletOpen() const { return bTabletOpen; }
-	AManhuntPlayerState* GetSpeedhuntSelection() const { return SpeedhuntSelection.Get(); }
+	AManhuntPlayerState* GetSpeedhuntSelection() const;
 
 	// ---------------- Konsolen-Befehle zum Testen ----------------
 	/** MH_Class 1|2|3 */

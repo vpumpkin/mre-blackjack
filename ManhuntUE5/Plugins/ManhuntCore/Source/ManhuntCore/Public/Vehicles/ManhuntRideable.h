@@ -77,7 +77,7 @@ public:
 	virtual bool CanMount_Implementation(AManhuntCharacter* NewRider) override;
 	virtual void Mount_Implementation(AManhuntCharacter* NewRider) override;
 	virtual void Dismount_Implementation(AManhuntCharacter* OldRider) override;
-	virtual float GetMaxSpeedOnSurface_Implementation(TEnumAsByte<EPhysicalSurface> Surface) override;
+	virtual float GetMaxSpeedOnSurface_Implementation(EPhysicalSurface Surface) override;
 	virtual float GetRiderStaminaCostPerSecond_Implementation() override;
 
 protected:

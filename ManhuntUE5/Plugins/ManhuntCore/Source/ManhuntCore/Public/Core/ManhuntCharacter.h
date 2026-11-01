@@ -87,7 +87,7 @@ public:
 
 	// ---------------- Von der Movement-Komponente ----------------
 	void SimulateStamina(float DeltaSeconds, bool bSprinting);
-	void RefreshVehicleSpeed(TEnumAsByte<EPhysicalSurface> Surface);
+	void RefreshVehicleSpeed(EPhysicalSurface Surface);
 
 	// ---------------- Nur Server ----------------
 	void ApplyClassStats(const FManhuntClassStats& NewStats);
@@ -102,7 +102,7 @@ public:
 	AActor* GetCurrentInteraction() const { return CurrentInteraction.Get(); }
 	void SetMountedVehicle(AActor* Vehicle);
 	void SetActiveQueue(AManhuntCheckout* Queue) { ActiveQueue = Queue; }
-	void SetCurrentBuilding(AManhuntBuildingVolume* Building) { CurrentBuilding = Building; }
+	void SetCurrentBuilding(AManhuntBuildingVolume* Building);
 	/** Text-Nachricht an den besitzenden Client. */
 	void ShowMessage(const FText& Message);
 	/** Alles abbrechen: Interaktion, Zeitaktion, Warteschlange, Fahrzeug. */

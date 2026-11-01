@@ -35,7 +35,7 @@ public:
 
 	/** Hoechsttempo in cm/s auf diesem Untergrund. 0 = hier unbrauchbar (Treppe, Matsch). */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Manhunt|Vehicle")
-	float GetMaxSpeedOnSurface(TEnumAsByte<EPhysicalSurface> Surface);
+	float GetMaxSpeedOnSurface(EPhysicalSurface Surface);
 
 	/** Stamina-Kosten pro Sekunde bei voller Fahrt (Fahrrad > 0, E-Scooter = 0). */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Manhunt|Vehicle")

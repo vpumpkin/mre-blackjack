@@ -121,7 +121,7 @@ void AManhuntRideable::OnRep_Rider()
 	OnRiderChanged(Rider);
 }
 
-float AManhuntRideable::GetMaxSpeedOnSurface_Implementation(TEnumAsByte<EPhysicalSurface> Surface)
+float AManhuntRideable::GetMaxSpeedOnSurface_Implementation(EPhysicalSurface Surface)
 {
 	const FManhuntVehicleConfig& Cfg = GetConfig();
 	if (Cfg.bUsesBattery && BatterySeconds <= 0.f)

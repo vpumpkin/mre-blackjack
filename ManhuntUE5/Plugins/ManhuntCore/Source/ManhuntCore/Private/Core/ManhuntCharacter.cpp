@@ -87,9 +87,9 @@ void AManhuntCharacter::TryLoadFallbackMesh()
 
 	for (const TCHAR* Path : MeshPaths)
 	{
-		if (USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet))
+		if (USkeletalMesh* LoadedMesh = LoadObject<USkeletalMesh>(nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet))
 		{
-			GetMesh()->SetSkeletalMeshAsset(Mesh);
+			GetMesh()->SetSkeletalMeshAsset(LoadedMesh);
 			break;
 		}
 	}
@@ -194,6 +194,11 @@ EHunterClass AManhuntCharacter::GetHunterClass() const
 AManhuntBuildingVolume* AManhuntCharacter::GetCurrentBuilding() const
 {
 	return CurrentBuilding.Get();
+}
+
+void AManhuntCharacter::SetCurrentBuilding(AManhuntBuildingVolume* Building)
+{
+	CurrentBuilding = Building;
 }
 
 float AManhuntCharacter::GetStaminaRatio() const

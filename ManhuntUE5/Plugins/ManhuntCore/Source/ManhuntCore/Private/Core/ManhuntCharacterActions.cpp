@@ -373,7 +373,7 @@ void AManhuntCharacter::OnRep_MountedVehicle()
 	OnMountedVehicleChanged(MountedVehicle);
 }
 
-void AManhuntCharacter::RefreshVehicleSpeed(TEnumAsByte<EPhysicalSurface> Surface)
+void AManhuntCharacter::RefreshVehicleSpeed(EPhysicalSurface Surface)
 {
 	if (MountedVehicle && MountedVehicle->Implements<UManhuntMountableVehicle>())
 	{

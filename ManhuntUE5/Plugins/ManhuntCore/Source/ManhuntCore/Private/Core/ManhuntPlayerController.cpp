@@ -115,6 +115,11 @@ void AManhuntPlayerController::SetupInputComponent()
 	}
 }
 
+AManhuntPlayerState* AManhuntPlayerController::GetSpeedhuntSelection() const
+{
+	return SpeedhuntSelection.Get();
+}
+
 AManhuntCharacter* AManhuntPlayerController::GetManhuntCharacter() const
 {
 	return GetPawn<AManhuntCharacter>();
