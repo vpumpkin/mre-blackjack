@@ -1,0 +1,27 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Manhunt Core",
+	"Description": "Gameplay-Framework fuer MANHUNT: OPEN WORLD (3 vs. 8): Multiplayer-Matchflow, Hunter-Klassen, Pfand-Kreislauf, Fahrzeuge und asset-agnostische Interfaces fuer Fab-Assets.",
+	"Category": "Gameplay",
+	"CreatedBy": "",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ManhuntCore",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		}
+	]
+}
