@@ -83,7 +83,7 @@ public:
 	float GetSpeedMultiplier() const;
 	float GetCachedVehicleSpeed() const { return CachedVehicleSpeed; }
 	float GetAudibleRadius() const;
-	AManhuntBuildingVolume* GetCurrentBuilding() const { return CurrentBuilding.Get(); }
+	AManhuntBuildingVolume* GetCurrentBuilding() const;
 
 	// ---------------- Von der Movement-Komponente ----------------
 	void SimulateStamina(float DeltaSeconds, bool bSprinting);

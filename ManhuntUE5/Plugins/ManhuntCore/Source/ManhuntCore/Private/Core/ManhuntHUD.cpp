@@ -26,7 +26,7 @@ namespace
 	const FLinearColor ColBack(0.f, 0.f, 0.f, 0.55f);
 }
 
-void AManhuntHUD::DrawLine(const FString& Text, float X, float& Y, const FLinearColor& Color, float Scale)
+void AManhuntHUD::DrawTextLine(const FString& Text, float X, float& Y, const FLinearColor& Color, float Scale)
 {
 	DrawText(Text, Color, X, Y, GEngine->GetMediumFont(), Scale);
 	Y += 20.f * Scale;
@@ -122,39 +122,39 @@ void AManhuntHUD::DrawHUD()
 	{
 		if (bRunner)
 		{
-			DrawLine(TEXT("RUNNER"), 16.f, Y, ColGreen, 1.2f);
-			DrawLine(FString::Printf(TEXT("Geld: %s"), *ManhuntMoney::Format(PS->GetMoneyCents())), 16.f, Y, ColText);
-			DrawLine(FString::Printf(TEXT("Pfandbon: %s"), *ManhuntMoney::Format(PS->GetPfandbonCents())), 16.f, Y, ColText);
-			DrawLine(FString::Printf(TEXT("Pfandflaschen: %d"), PS->GetBottleCount()), 16.f, Y, ColText);
-			DrawLine(FString::Printf(TEXT("[1] Energy-Drink x%d  [2] Ping-Blocker x%d  [3] Fake-Ping x%d"),
+			DrawTextLine(TEXT("RUNNER"), 16.f, Y, ColGreen, 1.2f);
+			DrawTextLine(FString::Printf(TEXT("Geld: %s"), *ManhuntMoney::Format(PS->GetMoneyCents())), 16.f, Y, ColText);
+			DrawTextLine(FString::Printf(TEXT("Pfandbon: %s"), *ManhuntMoney::Format(PS->GetPfandbonCents())), 16.f, Y, ColText);
+			DrawTextLine(FString::Printf(TEXT("Pfandflaschen: %d"), PS->GetBottleCount()), 16.f, Y, ColText);
+			DrawTextLine(FString::Printf(TEXT("[1] Energy-Drink x%d  [2] Ping-Blocker x%d  [3] Fake-Ping x%d"),
 				PS->GetItemCount(EManhuntItem::EnergyDrink), PS->GetItemCount(EManhuntItem::PingBlocker), PS->GetItemCount(EManhuntItem::FakePing)), 16.f, Y, ColText, 0.9f);
-			DrawLine(TEXT("[Q] Tuer verriegeln/entriegeln"), 16.f, Y, ColText, 0.9f);
+			DrawTextLine(TEXT("[Q] Tuer verriegeln/entriegeln"), 16.f, Y, ColText, 0.9f);
 		}
 		else if (bHunter)
 		{
 			const UEnum* ClassEnum = StaticEnum<EHunterClass>();
 			const FString ClassName = ClassEnum ? ClassEnum->GetDisplayNameTextByValue(static_cast<int64>(PS->GetHunterClass())).ToString() : FString();
-			DrawLine(FString::Printf(TEXT("HUNTER - %s%s"), *ClassName, PS->IsTaskforceLeader() ? TEXT("  (Taskforce-Leader)") : TEXT("")), 16.f, Y, ColRed, 1.2f);
+			DrawTextLine(FString::Printf(TEXT("HUNTER - %s%s"), *ClassName, PS->IsTaskforceLeader() ? TEXT("  (Taskforce-Leader)") : TEXT("")), 16.f, Y, ColRed, 1.2f);
 			if (GS->GetPhase() == EManhuntPhase::ClassSelection || GS->GetPhase() == EManhuntPhase::WaitingForPlayers)
 			{
-				DrawLine(TEXT("Klasse waehlen: [1] Hacker  [2] Kampfsportler  [3] Faehrtenleser"), 16.f, Y, ColYellow);
+				DrawTextLine(TEXT("Klasse waehlen: [1] Hacker  [2] Kampfsportler  [3] Faehrtenleser"), 16.f, Y, ColYellow);
 			}
 			if (PS->IsTaskforceLeader())
 			{
 				const AManhuntPlayerState* Sel = PC->GetSpeedhuntSelection();
-				DrawLine(FString::Printf(TEXT("Speedhunts uebrig: %d   Ziel [J]: %s   Start [H]"),
+				DrawTextLine(FString::Printf(TEXT("Speedhunts uebrig: %d   Ziel [J]: %s   Start [H]"),
 					GS->GetSpeedhuntsRemaining(), Sel ? *Sel->GetPlayerName() : TEXT("-")), 16.f, Y, ColText, 0.9f);
 			}
 			if (Char && Char->Hacker && PS->GetHunterClass() == EHunterClass::Hacker)
 			{
-				DrawLine(TEXT("[Q] Ueberwachungskameras  [Mausrad] Kamera wechseln"), 16.f, Y, ColText, 0.9f);
+				DrawTextLine(TEXT("[Q] Ueberwachungskameras  [Mausrad] Kamera wechseln"), 16.f, Y, ColText, 0.9f);
 			}
 			if (Char && Char->Tracker && PS->GetHunterClass() == EHunterClass::Tracker)
 			{
 				const float CD = Char->Tracker->GetCooldownRemaining();
-				DrawLine(CD > 0.f ? FString::Printf(TEXT("[Q] Spuren lesen: %d s"), FMath::CeilToInt(CD)) : FString(TEXT("[Q] Spuren lesen: BEREIT")), 16.f, Y, CD > 0.f ? ColText : ColGreen, 0.9f);
+				DrawTextLine(CD > 0.f ? FString::Printf(TEXT("[Q] Spuren lesen: %d s"), FMath::CeilToInt(CD)) : FString(TEXT("[Q] Spuren lesen: BEREIT")), 16.f, Y, CD > 0.f ? ColText : ColGreen, 0.9f);
 			}
-			DrawLine(TEXT("[LMB] Tackle   [Tab] Tablet"), 16.f, Y, ColText, 0.9f);
+			DrawTextLine(TEXT("[LMB] Tackle   [Tab] Tablet"), 16.f, Y, ColText, 0.9f);
 		}
 	}
 

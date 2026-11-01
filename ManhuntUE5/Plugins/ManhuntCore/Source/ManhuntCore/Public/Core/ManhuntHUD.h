@@ -23,7 +23,7 @@ public:
 	virtual void DrawHUD() override;
 
 protected:
-	void DrawLine(const FString& Text, float X, float& Y, const FLinearColor& Color, float Scale = 1.f);
+	void DrawTextLine(const FString& Text, float X, float& Y, const FLinearColor& Color, float Scale = 1.f);
 	void DrawBar(float X, float Y, float W, float H, float Ratio, const FLinearColor& Color);
 	void DrawTablet(AManhuntPlayerController* PC, float X, float Y, float Size);
 	FVector2D WorldToTablet(const FVector2D& World, float X, float Y, float Size) const;

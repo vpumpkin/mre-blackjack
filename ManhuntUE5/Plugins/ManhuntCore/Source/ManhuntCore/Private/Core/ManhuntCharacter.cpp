@@ -9,6 +9,7 @@
 #include "Hunters/ManhuntTrackingSubsystem.h"
 #include "Hunters/ManhuntCCTVCamera.h"
 #include "Economy/ManhuntCheckout.h"
+#include "World/ManhuntBuildingVolume.h"
 #include "Interfaces/ManhuntInteractable.h"
 #include "Interfaces/ManhuntMountableVehicle.h"
 #include "Camera/CameraComponent.h"
@@ -188,6 +189,11 @@ EHunterClass AManhuntCharacter::GetHunterClass() const
 {
 	const AManhuntPlayerState* PS = GetManhuntPlayerState();
 	return PS ? PS->GetHunterClass() : EHunterClass::None;
+}
+
+AManhuntBuildingVolume* AManhuntCharacter::GetCurrentBuilding() const
+{
+	return CurrentBuilding.Get();
 }
 
 float AManhuntCharacter::GetStaminaRatio() const

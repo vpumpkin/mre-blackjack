@@ -140,7 +140,8 @@ struct FManhuntFootprint
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Category = "Track") FVector_NetQuantize10 Location = FVector::ZeroVector;
+	/** Nicht BlueprintReadOnly: FVector_NetQuantize10 ist kein Blueprint-Typ. */
+	UPROPERTY() FVector_NetQuantize10 Location = FVector::ZeroVector;
 	UPROPERTY(BlueprintReadOnly, Category = "Track") float Yaw = 0.f;
 	UPROPERTY(BlueprintReadOnly, Category = "Track") float Age = 0.f;
 	UPROPERTY(BlueprintReadOnly, Category = "Track") bool bTireTrack = false;
